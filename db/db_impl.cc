@@ -35,11 +35,13 @@
 #include "util/logging.h"
 #include "util/mutexlock.h"
 
-namespace leveldb {
 
+namespace leveldb {
+// 非TableCache的文件数量
 const int kNumNonTableCacheFiles = 10;
 
 // Information kept for every waiting writer
+// 为每个等待的writer保留信息
 struct DBImpl::Writer {
   explicit Writer(port::Mutex* mu)
       : batch(nullptr), sync(false), done(false), cv(mu) {}
@@ -74,6 +76,9 @@ struct DBImpl::CompactionState {
   // will never have to service a snapshot below smallest_snapshot.
   // Therefore if we have seen a sequence number S <= smallest_snapshot,
   // we can drop all entries for the same key with sequence numbers < S.
+  // 序列号 < smallest_snapshot非必要，因为我们永远不需要服务一个低于
+  // smallest_snapshot的快照。因此，如果我们看到一个序列号S <= 
+  // smallest_snapshot，我们可以丢弃同一key序列号 < S 的所有条目。
   SequenceNumber smallest_snapshot;
 
   std::vector<Output> outputs;
@@ -86,11 +91,14 @@ struct DBImpl::CompactionState {
 };
 
 // Fix user-supplied options to be reasonable
+// 调整用户提供的选项，使其合理
+// 将*ptr 限制在[minvalue, maxvalue]内
 template <class T, class V>
 static void ClipToRange(T* ptr, V minvalue, V maxvalue) {
   if (static_cast<V>(*ptr) > maxvalue) *ptr = maxvalue;
   if (static_cast<V>(*ptr) < minvalue) *ptr = minvalue;
 }
+// 对src进行“消毒”，返回消毒后的选项
 Options SanitizeOptions(const std::string& dbname,
                         const InternalKeyComparator* icmp,
                         const InternalFilterPolicy* ipolicy,
@@ -118,8 +126,10 @@ Options SanitizeOptions(const std::string& dbname,
   return result;
 }
 
+// 用作TableCache的文件数量
 static int TableCacheSize(const Options& sanitized_options) {
   // Reserve ten files or so for other uses and give the rest to TableCache.
+  // 保留10个文件左右用于其他用途，剩下的用作TableCache
   return sanitized_options.max_open_files - kNumNonTableCacheFiles;
 }
 
@@ -1461,6 +1471,7 @@ void DBImpl::GetApproximateSizes(const Range* range, int n, uint64_t* sizes) {
 
 // Default implementations of convenience methods that subclasses of DB
 // can call if they wish
+// 便利方法的默认实现，如果愿意，子类可以调用它们。
 Status DB::Put(const WriteOptions& opt, const Slice& key, const Slice& value) {
   WriteBatch batch;
   batch.Put(key, value);

@@ -44,11 +44,17 @@ const char* InternalKeyComparator::Name() const {
   return "leveldb.InternalKeyComparator";
 }
 
+// Three-way comparison.  Returns value:
+//	 < 0 iff "a" < "b",
+//	 == 0 iff "a" == "b",
+//	 > 0 iff "a" > "b"
 int InternalKeyComparator::Compare(const Slice& akey, const Slice& bkey) const {
   // Order by:
   //    increasing user key (according to user-supplied comparator)
   //    decreasing sequence number
   //    decreasing type (though sequence# should be enough to disambiguate)
+  //	用户提供的user_comparator_：a>b则返回正；a<b则返回负
+  //	序列号：a<b则返回正；a>b则返回负
   int r = user_comparator_->Compare(ExtractUserKey(akey), ExtractUserKey(bkey));
   if (r == 0) {
     const uint64_t anum = DecodeFixed64(akey.data() + akey.size() - 8);

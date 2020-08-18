@@ -21,6 +21,7 @@ class MemTable {
  public:
   // MemTables are reference counted.  The initial reference count
   // is zero and the caller must call Ref() at least once.
+  // MemTables是被引用计数的。初始的引用计数为0，调用者必须至少调用一次Ref()
   explicit MemTable(const InternalKeyComparator& comparator);
 
   MemTable(const MemTable&) = delete;
@@ -66,8 +67,9 @@ class MemTable {
   friend class MemTableIterator;
   friend class MemTableBackwardIterator;
 
+  // 对内部key进行比较
   struct KeyComparator {
-    const InternalKeyComparator comparator;
+    const InternalKeyComparator comparator;	// 内部key比较器
     explicit KeyComparator(const InternalKeyComparator& c) : comparator(c) {}
     int operator()(const char* a, const char* b) const;
   };
@@ -76,10 +78,10 @@ class MemTable {
 
   ~MemTable();  // Private since only Unref() should be used to delete it
 
-  KeyComparator comparator_;
-  int refs_;
-  Arena arena_;
-  Table table_;
+  KeyComparator comparator_;	// 用于比较user_key
+  int refs_;		// 引用计数
+  Arena arena_;		// 用于内存分配
+  Table table_;		// 一个SkipList，key:<用户key大小+8|用户key|序列号和值类型信息|用户value大小|用户value>
 };
 
 }  // namespace leveldb

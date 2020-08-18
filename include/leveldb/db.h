@@ -26,12 +26,15 @@ class WriteBatch;
 // Abstract handle to particular state of a DB.
 // A Snapshot is an immutable object and can therefore be safely
 // accessed from multiple threads without any external synchronization.
+// DB指定状态的抽象句柄。
+// 快照是不可变对象，因此多个线程不需要外部同步，就可以安全地访问。
 class LEVELDB_EXPORT Snapshot {
  protected:
   virtual ~Snapshot();
 };
 
 // A range of keys
+// [start, limit)
 struct LEVELDB_EXPORT Range {
   Range() = default;
   Range(const Slice& s, const Slice& l) : start(s), limit(l) {}
@@ -43,6 +46,8 @@ struct LEVELDB_EXPORT Range {
 // A DB is a persistent ordered map from keys to values.
 // A DB is safe for concurrent access from multiple threads without
 // any external synchronization.
+// DB是从key到value的持久有序映射。
+// 多个线程没有外部同步的并发访问DB是安全的。
 class LEVELDB_EXPORT DB {
  public:
   // Open the database with the specified "name".
@@ -50,6 +55,10 @@ class LEVELDB_EXPORT DB {
   // OK on success.
   // Stores nullptr in *dbptr and returns a non-OK status on error.
   // Caller should delete *dbptr when it is no longer needed.
+  // 使用指定的name打开数据库。
+  // 如果成功，向*dbptr存储 在堆栈申请的数据库的指针，并返回OK。
+  // 如果出错，向*dbptr存储nullptr，并返回一个非OK的状态。
+  // 不再使用时，调用者需要delete *dbptr。
   static Status Open(const Options& options, const std::string& name,
                      DB** dbptr);
 

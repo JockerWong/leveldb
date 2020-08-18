@@ -91,12 +91,15 @@ void AppendInternalKey(std::string* result, const ParsedInternalKey& key);
 // On error, returns false, leaves "*result" in an undefined state.
 bool ParseInternalKey(const Slice& internal_key, ParsedInternalKey* result);
 
+// internal key中最后8字节存储的是序列号和值类型信息
 // Returns the user key portion of an internal key.
 inline Slice ExtractUserKey(const Slice& internal_key) {
   assert(internal_key.size() >= 8);
   return Slice(internal_key.data(), internal_key.size() - 8);
 }
 
+// 内部key的比较器，为用户key部分使用指定的比较器，并以降序的序列号打破平局的情况
+// 内部key的最后8字节是序列号和值类型信息
 // A comparator for internal keys that uses a specified comparator for
 // the user key portion and breaks ties by decreasing sequence number.
 class InternalKeyComparator : public Comparator {
@@ -193,15 +196,19 @@ class LookupKey {
   ~LookupKey();
 
   // Return a key suitable for lookup in a MemTable.
+  // 返回适用于在MemTable中查找的key
   Slice memtable_key() const { return Slice(start_, end_ - start_); }
 
   // Return an internal key (suitable for passing to an internal iterator)
+  // 返回一个内部key（适用于传递给内部迭代器）
   Slice internal_key() const { return Slice(kstart_, end_ - kstart_); }
 
   // Return the user key
+  // 返回一个用户key
   Slice user_key() const { return Slice(kstart_, end_ - kstart_ - 8); }
 
  private:
+  // 下面三个部分分别是：用户key长度+8，用户key，8字节的序列号与值类型信息
   // We construct a char array of the form:
   //    klength  varint32               <-- start_
   //    userkey  char[klength]          <-- kstart_
@@ -212,6 +219,7 @@ class LookupKey {
   const char* start_;
   const char* kstart_;
   const char* end_;
+  // 避免为短key申请分配空间
   char space_[200];  // Avoid allocation for short keys
 };
 

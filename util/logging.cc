@@ -20,13 +20,17 @@ void AppendNumberTo(std::string* str, uint64_t num) {
   str->append(buf);
 }
 
+// 将value中内容追加到str末尾，
+// 如果value中有不在可显示范围内的字符，则进行转义。
 void AppendEscapedStringTo(std::string* str, const Slice& value) {
   for (size_t i = 0; i < value.size(); i++) {
     char c = value[i];
+    // ASCII码中，空格(32)之后全部是全部是正常的符号，'~'是最后一个正常符号(126)
     if (c >= ' ' && c <= '~') {
       str->push_back(c);
     } else {
       char buf[10];
+      // 例如 c == 31 ，buf中内容："\x1f"
       std::snprintf(buf, sizeof(buf), "\\x%02x",
                     static_cast<unsigned int>(c) & 0xff);
       str->append(buf);

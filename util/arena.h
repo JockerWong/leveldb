@@ -13,6 +13,7 @@
 
 namespace leveldb {
 
+// 用于分配内存的类
 class Arena {
  public:
   Arena();
@@ -39,11 +40,11 @@ class Arena {
   char* AllocateNewBlock(size_t block_bytes);
 
   // Allocation state
-  char* alloc_ptr_;
-  size_t alloc_bytes_remaining_;
+  char* alloc_ptr_;					// 当前块的 可用内存空间地址
+  size_t alloc_bytes_remaining_;	// 当前块的 剩余字节数
 
   // Array of new[] allocated memory blocks
-  std::vector<char*> blocks_;
+  std::vector<char*> blocks_;		// new 申请的所有内存块
 
   // Total memory usage of the arena.
   //

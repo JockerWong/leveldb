@@ -17,6 +17,16 @@
 // external synchronization, but if any of the threads may call a
 // non-const method, all threads accessing the same WriteBatch must use
 // external synchronization.
+// WriteBatch保存一个更新集合，原子地应用到DB
+// 所有更新操作按照它们被加入到WriteBatch的顺序被应用到DB。
+// 例如，以下batch被写入之后，"key"的值将是"v3" :
+//    batch.Put("key", "v1");
+//    batch.Delete("key");
+//    batch.Put("key", "v2");
+//    batch.Put("key", "v3");
+// 多个线程可以在不进行外部同步的情况下调用WriteBatch上的const方法，但是如果其中
+// 任何一个线程可能调用非const方法，那么访问同一个WriteBatch的所有线程都必须使用
+// 外部同步。
 
 #ifndef STORAGE_LEVELDB_INCLUDE_WRITE_BATCH_H_
 #define STORAGE_LEVELDB_INCLUDE_WRITE_BATCH_H_
@@ -60,6 +70,9 @@ class LEVELDB_EXPORT WriteBatch {
   //
   // This number is tied to implementation details, and may change across
   // releases. It is intended for LevelDB usage metrics.
+  // 该batch导致的数据库变化的大小。
+  // 该数值与实现细节相关，并且可能在不同发布版本之间变化。
+  // 它用于LevelDB的使用指标
   size_t ApproximateSize() const;
 
   // Copies the operations in "source" to this batch.
@@ -67,6 +80,9 @@ class LEVELDB_EXPORT WriteBatch {
   // This runs in O(source size) time. However, the constant factor is better
   // than calling Iterate() over the source batch with a Handler that replicates
   // the operations into this batch.
+  // 拷贝source中的操作到本batch。
+  // 运行时间为O(source size)。但是，常量因子要比 使用一个复制操作到本batch的Handler
+  // 对source调用Iterate() 要好
   void Append(const WriteBatch& source);
 
   // Support for iterating over the contents of a batch.

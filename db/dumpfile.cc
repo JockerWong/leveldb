@@ -72,8 +72,10 @@ Status PrintLogContents(Env* env, const std::string& fname,
 }
 
 // Called on every item found in a WriteBatch.
+// 将Batch中的操作记录以人类可读的格式追加到一个可写文件dst_中
 class WriteBatchItemPrinter : public WriteBatch::Handler {
  public:
+  // 向dst_中追加 "  put 'key' 'value'\n"，有些字符可能需要转义
   void Put(const Slice& key, const Slice& value) override {
     std::string r = "  put '";
     AppendEscapedStringTo(&r, key);
@@ -82,6 +84,7 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
     r += "'\n";
     dst_->Append(r);
   }
+  // 向dst_中追加 "  del 'key'\n"，有些字符可能需要转义
   void Delete(const Slice& key) override {
     std::string r = "  del '";
     AppendEscapedStringTo(&r, key);
@@ -94,6 +97,7 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
 
 // Called on every log record (each one of which is a WriteBatch)
 // found in a kLogFile.
+// 对kLogFile中的每个日志记录（每一个都是一个WriteBatch）调用。
 static void WriteBatchPrinter(uint64_t pos, Slice record, WritableFile* dst) {
   std::string r = "--- offset ";
   AppendNumberTo(&r, pos);

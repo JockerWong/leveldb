@@ -18,13 +18,16 @@ void PutFixed64(std::string* dst, uint64_t value) {
   dst->append(buf, sizeof(buf));
 }
 
+// 从二进制最低位开始，每7位存入一个字节，如果高位还有有效位则该字节最高位置"1"，否则置"0"。
+// 返回dst中下一个可用字节
+// 因此一个4字节的v最坏情况，需要存到5字节中（4B/7b向上取整）
 char* EncodeVarint32(char* dst, uint32_t v) {
   // Operate on characters as unsigneds
   uint8_t* ptr = reinterpret_cast<uint8_t*>(dst);
   static const int B = 128;
-  if (v < (1 << 7)) {
+  if (v < (1 << 7)) {			// 7bits以内的有效数据，用一个字节存储，最高位必然为0
     *(ptr++) = v;
-  } else if (v < (1 << 14)) {
+  } else if (v < (1 << 14)) {	// 14bits以内的有效数据，每个字节存储7位数据，且只有最后一个字节最高位为0
     *(ptr++) = v | B;
     *(ptr++) = v >> 7;
   } else if (v < (1 << 21)) {
@@ -46,12 +49,16 @@ char* EncodeVarint32(char* dst, uint32_t v) {
   return reinterpret_cast<char*>(ptr);
 }
 
+// 将v变长的存储到dst中
 void PutVarint32(std::string* dst, uint32_t v) {
   char buf[5];
   char* ptr = EncodeVarint32(buf, v);
   dst->append(buf, ptr - buf);
 }
 
+// 从二进制最低位开始，每7位存入一个字节，如果高位还有有效位则该字节最高位置"1"，否则置"0"。
+// 返回dst中下一个可用字节
+// 因此一个8字节的v最坏情况，需要存到10字节中（8B/7b向上取整）
 char* EncodeVarint64(char* dst, uint64_t v) {
   static const int B = 128;
   uint8_t* ptr = reinterpret_cast<uint8_t*>(dst);
@@ -59,10 +66,11 @@ char* EncodeVarint64(char* dst, uint64_t v) {
     *(ptr++) = v | B;
     v >>= 7;
   }
-  *(ptr++) = static_cast<uint8_t>(v);
+  *(ptr++) = static_cast<uint8_t>(v);	// 最后一个字节
   return reinterpret_cast<char*>(ptr);
 }
 
+// 将v变长的存储到dst中
 void PutVarint64(std::string* dst, uint64_t v) {
   char buf[10];
   char* ptr = EncodeVarint64(buf, v);
@@ -74,6 +82,7 @@ void PutLengthPrefixedSlice(std::string* dst, const Slice& value) {
   dst->append(value.data(), value.size());
 }
 
+// 用EncodeVarint32()或EncodeVarint64()变长压缩v时，需要的字节数
 int VarintLength(uint64_t v) {
   int len = 1;
   while (v >= 128) {
@@ -83,6 +92,7 @@ int VarintLength(uint64_t v) {
   return len;
 }
 
+// 从[p,limit)地址范围内解析变长的32bits数据到value，并返回解析后的下一个地址
 const char* GetVarint32PtrFallback(const char* p, const char* limit,
                                    uint32_t* value) {
   uint32_t result = 0;
@@ -93,7 +103,7 @@ const char* GetVarint32PtrFallback(const char* p, const char* limit,
       // More bytes are present
       result |= ((byte & 127) << shift);
     } else {
-      result |= (byte << shift);
+      result |= (byte << shift);	// 读出来的就是1字节，最高位为0的话，自然也就不需要通过掩码运算得到低7位了
       *value = result;
       return reinterpret_cast<const char*>(p);
     }
@@ -101,6 +111,7 @@ const char* GetVarint32PtrFallback(const char* p, const char* limit,
   return nullptr;
 }
 
+// 从input的开头读取变长的32bit值到value，并从input中丢掉
 bool GetVarint32(Slice* input, uint32_t* value) {
   const char* p = input->data();
   const char* limit = p + input->size();
@@ -152,6 +163,7 @@ const char* GetLengthPrefixedSlice(const char* p, const char* limit,
   return p + len;
 }
 
+// 从input中读取带长度的数据，将数据维护到result中，并从input中丢弃
 bool GetLengthPrefixedSlice(Slice* input, Slice* result) {
   uint32_t len;
   if (GetVarint32(input, &len) && input->size() >= len) {

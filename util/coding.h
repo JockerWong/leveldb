@@ -88,6 +88,7 @@ inline uint32_t DecodeFixed32(const char* ptr) {
          (static_cast<uint32_t>(buffer[3]) << 24);
 }
 
+// 从ptr解码8字节大小的uint64_t
 inline uint64_t DecodeFixed64(const char* ptr) {
   const uint8_t* const buffer = reinterpret_cast<const uint8_t*>(ptr);
 
@@ -105,11 +106,12 @@ inline uint64_t DecodeFixed64(const char* ptr) {
 // Internal routine for use by fallback path of GetVarint32Ptr
 const char* GetVarint32PtrFallback(const char* p, const char* limit,
                                    uint32_t* value);
+// 从[p,limit)地址范围内解析变长的32bits数据到value，并返回解析后的下一个地址
 inline const char* GetVarint32Ptr(const char* p, const char* limit,
                                   uint32_t* value) {
   if (p < limit) {
     uint32_t result = *(reinterpret_cast<const uint8_t*>(p));
-    if ((result & 128) == 0) {
+    if ((result & 128) == 0) {	// 第一个最高位为0的字节为压缩编码的最高字节
       *value = result;
       return p + 1;
     }
