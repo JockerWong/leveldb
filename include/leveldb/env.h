@@ -71,6 +71,10 @@ class LEVELDB_EXPORT Env {
   // NotFound status when the file does not exist.
   //
   // The returned file will only be accessed by one thread at a time.
+  // 创建一个顺序读取指定名字的file的对象。
+  // 如果成功，将指向新的SequentialFile对象的指针存储到*result，并返回OK。
+  // 如果失败，将nullptr存储到*result，并返回非OK。
+  // 如果文件不存在，返回非OK状态，实现应该返回一个NotFound状态。
   virtual Status NewSequentialFile(const std::string& fname,
                                    SequentialFile** result) = 0;
 
@@ -219,6 +223,7 @@ class LEVELDB_EXPORT Env {
 };
 
 // A file abstraction for reading sequentially through a file
+// 一个顺序读取文件的文件抽象
 class LEVELDB_EXPORT SequentialFile {
  public:
   SequentialFile() = default;

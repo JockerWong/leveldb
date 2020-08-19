@@ -20,8 +20,6 @@ void AppendNumberTo(std::string* str, uint64_t num) {
   str->append(buf);
 }
 
-// 将value中内容追加到str末尾，
-// 如果value中有不在可显示范围内的字符，则进行转义。
 void AppendEscapedStringTo(std::string* str, const Slice& value) {
   for (size_t i = 0; i < value.size(); i++) {
     char c = value[i];

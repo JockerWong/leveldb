@@ -23,6 +23,7 @@ namespace leveldb {
 
 namespace {
 
+// 猜测文件fname的文件类型
 bool GuessType(const std::string& fname, FileType* type) {
   size_t pos = fname.rfind('/');
   std::string basename;
@@ -36,6 +37,7 @@ bool GuessType(const std::string& fname, FileType* type) {
 }
 
 // Notified when log reader encounters corruption.
+// 当log reader遇到corruption时，通知到可写文件dst_
 class CorruptionReporter : public log::Reader::Reporter {
  public:
   void Corruption(size_t bytes, const Status& status) override {
@@ -51,6 +53,11 @@ class CorruptionReporter : public log::Reader::Reporter {
 };
 
 // Print contents of a log file. (*func)() is called on every record.
+// 打印一个log文件的内容，到可写文件dst
+// param[in] env : ???
+// param[in] fname : 要读取的文件名字
+// param[in] func : 对从fname中读取的每个记录调用的方法
+// param[in] dst : 将日志打印到可写文件dst中
 Status PrintLogContents(Env* env, const std::string& fname,
                         void (*func)(uint64_t, Slice, WritableFile*),
                         WritableFile* dst) {
@@ -61,9 +68,12 @@ Status PrintLogContents(Env* env, const std::string& fname,
   }
   CorruptionReporter reporter;
   reporter.dst_ = dst;
+  // checksum为true，验证校验和
+  // initial_offset为0，从file的开始位置读取记录
   log::Reader reader(file, &reporter, true, 0);
   Slice record;
   std::string scratch;
+  // 读取一个record，并调用func方法，将记录写入到dst中
   while (reader.ReadRecord(&record, &scratch)) {
     (*func)(reader.LastRecordOffset(), record, dst);
   }
@@ -98,10 +108,21 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
 // Called on every log record (each one of which is a WriteBatch)
 // found in a kLogFile.
 // 对kLogFile中的每个日志记录（每一个都是一个WriteBatch）调用。
+// param[in] pos : ???
+// param[in] record : 所有的操作记录，可以作为WriteBatch的内容
+// param[in] dst : 向可写文件dst中追加日志记录
+// 如果record<12（8字节序列号，4字节count），太小，dst文件追加：
+//   "--- offset #pos#; log record length #record_size# is too small\n"
+// 否则，dst文件追加：
+//   "--- offset #pos#; sequence #sequence#\n"
+//   后面再追加record中的每个操作记录
+//   如果中途处理失败，dst后追加：
+//     "  error: #errinfo#\n"
 static void WriteBatchPrinter(uint64_t pos, Slice record, WritableFile* dst) {
   std::string r = "--- offset ";
   AppendNumberTo(&r, pos);
   r += "; ";
+  // 这个12应该是与kHeader是一致的
   if (record.size() < 12) {
     r += "log record length ";
     AppendNumberTo(&r, record.size());
@@ -115,6 +136,7 @@ static void WriteBatchPrinter(uint64_t pos, Slice record, WritableFile* dst) {
   AppendNumberTo(&r, WriteBatchInternal::Sequence(&batch));
   r.push_back('\n');
   dst->Append(r);
+  // 遍历batch，将其中所有记录按照顺序按照人类可读的格式追加到dst中
   WriteBatchItemPrinter batch_item_printer;
   batch_item_printer.dst_ = dst;
   Status s = batch.Iterate(&batch_item_printer);
@@ -123,6 +145,8 @@ static void WriteBatchPrinter(uint64_t pos, Slice record, WritableFile* dst) {
   }
 }
 
+// 顺序读取fname文件，每读取一个record（对应一个WriteBatch）调用一次
+// WriteBatchPrinter方法，将记录以日志的形式写入到可写文件dst中
 Status DumpLog(Env* env, const std::string& fname, WritableFile* dst) {
   return PrintLogContents(env, fname, WriteBatchPrinter, dst);
 }

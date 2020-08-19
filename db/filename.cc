@@ -69,12 +69,13 @@ std::string OldInfoLogFileName(const std::string& dbname) {
 }
 
 // Owned filenames have the form:
-//    dbname/CURRENT
-//    dbname/LOCK
-//    dbname/LOG
-//    dbname/LOG.old
-//    dbname/MANIFEST-[0-9]+
-//    dbname/[0-9]+.(log|sst|ldb)
+//    dbname/CURRENT                // 当前文件
+//    dbname/LOCK                   // 用文件实现的锁
+//    dbname/LOG                    // 给人看的日志
+//    dbname/LOG.old                // 每一次DB::Open()，将LOG重命名为LOG.old
+//    dbname/MANIFEST-[0-9]+        // 清单文件
+//    dbname/[0-9]+.(log|sst|ldb)   // .log WAL_Log
+//                                  // .ldb|.sst 每一层的SSTable文件
 bool ParseFileName(const std::string& filename, uint64_t* number,
                    FileType* type) {
   Slice rest(filename);

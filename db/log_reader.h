@@ -26,6 +26,7 @@ class Reader {
 
     // Some corruption was detected.  "size" is the approximate number
     // of bytes dropped due to the corruption.
+    // 发现一些corruption。size是由于损坏而丢弃的大约字节数
     virtual void Corruption(size_t bytes, const Status& status) = 0;
   };
 
@@ -40,6 +41,12 @@ class Reader {
   //
   // The Reader will start reading at the first record located at physical
   // position >= initial_offset within the file.
+  // 创建一个reader，从*file返回日志记录。
+  // *file在使用reader期间必须保持存活。
+  // 如果reporter非空，只要由于遇到corruption而修饰一些数据就会通知它。
+  // *reporter在使用reader期间必须保持存活。
+  // 如果checksum为true，如果可用就验证校验和。
+  // reader将从file中第一个物理位置>=initial_offset的记录开始读取
   Reader(SequentialFile* file, Reporter* reporter, bool checksum,
          uint64_t initial_offset);
 
@@ -53,6 +60,11 @@ class Reader {
   // "*scratch" as temporary storage.  The contents filled in *record
   // will only be valid until the next mutating operation on this
   // reader or the next mutation to *scratch.
+  // 将下一个记录读取到*record。
+  // 如果读取成功则返回true，如果读到末尾则返回false。
+  // 可能使用*scratch作为临时存储。
+  // 填充到*record中的内容只在下reader写一次变化(mutating)操作或*scratch下一次
+  // 变化之前有效。
   bool ReadRecord(Slice* record, std::string* scratch);
 
   // Returns the physical offset of the last record returned by ReadRecord.

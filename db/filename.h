@@ -19,9 +19,9 @@ namespace leveldb {
 class Env;
 
 enum FileType {
-  kLogFile,
+  kLogFile,         // .log文件
   kDBLockFile,
-  kTableFile,
+  kTableFile,       // .sst 或 .ldb 文件
   kDescriptorFile,
   kCurrentFile,
   kTempFile,
