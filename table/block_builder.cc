@@ -60,6 +60,7 @@ size_t BlockBuilder::CurrentSizeEstimate() const {
 
 Slice BlockBuilder::Finish() {
   // Append restart array
+  // 在buffer_末尾添加每个restart点的下标位置，和restart点数量
   for (size_t i = 0; i < restarts_.size(); i++) {
     PutFixed32(&buffer_, restarts_[i]);
   }

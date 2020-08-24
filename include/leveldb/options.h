@@ -141,6 +141,14 @@ struct LEVELDB_EXPORT Options {
   // worth switching to kNoCompression.  Even if the input data is
   // incompressible, the kSnappyCompression implementation will
   // efficiently detect that and will switch to uncompressed mode.
+  // 使用指定压缩算法压缩block。这个参数可以动态修改。
+  // 默认: kSnappyCompression，提供轻量但快速的压缩。
+  // 在Intel(R) Core(TM)2 2.4GHz机器上，kSnappyCompression的典型速度:
+  //     约200-500MB/s 压缩速度
+  //     约400-800MB/s 解压缩速度
+  // 注意：这些速度比大多数持久化存储速度快得多，因此，通常不值得切换到
+  // kNoCompression。即使输入数据不可压缩，kSnappyCompression的实现也能
+  // 有效地检测到，并切换到不压缩模式。
   CompressionType compression = kSnappyCompression;
 
   // EXPERIMENTAL: If true, append to existing MANIFEST and log files

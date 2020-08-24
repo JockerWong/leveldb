@@ -37,8 +37,8 @@ struct TableBuilder::Rep {
 
   Options options;
   Options index_block_options;
-  WritableFile* file;
-  uint64_t offset;
+  WritableFile* file;   // 用于往对应文件中写入
+  uint64_t offset;      // 当前的文件偏移量
   Status status;
   BlockBuilder data_block;
   BlockBuilder index_block;
@@ -69,6 +69,7 @@ struct TableBuilder::Rep {
   // 要添加到index block的data block句柄
   BlockHandle pending_handle;
 
+  // 对要存盘的内容进行（Snappy）压缩的输出结果
   std::string compressed_output;
 };
 
@@ -144,9 +145,11 @@ void TableBuilder::Flush() {
   if (!ok()) return;
   if (r->data_block.empty()) return;
   assert(!r->pending_index_entry);
+  // 将r->data_block写入文件
   WriteBlock(&r->data_block, &r->pending_handle);
   if (ok()) {
     r->pending_index_entry = true;
+    // 文件内容刷到磁盘
     r->status = r->file->Flush();
   }
   if (r->filter_block != nullptr) {
@@ -154,6 +157,12 @@ void TableBuilder::Flush() {
   }
 }
 
+// File格式中包含一系列的block，其中每个block包含：
+//     block_data: uint8[n]   可能压缩了的block数据
+//     type: uint8            数据压缩类型
+//     crc: uint32            32位校验和（前两者的）
+// param[in] block : 要写入文件的block
+// param[out] handle : block在文件中的偏移位置和大小
 void TableBuilder::WriteBlock(BlockBuilder* block, BlockHandle* handle) {
   // File format contains a sequence of blocks where each block has:
   //    block_data: uint8[n]
@@ -163,15 +172,18 @@ void TableBuilder::WriteBlock(BlockBuilder* block, BlockHandle* handle) {
   Rep* r = rep_;
   Slice raw = block->Finish();
 
+  // 最终要写入的block内容，可能会压缩
   Slice block_contents;
   CompressionType type = r->options.compression;
   // TODO(postrelease): Support more compression options: zlib?
   switch (type) {
     case kNoCompression:
+      // 不压缩
       block_contents = raw;
       break;
 
     case kSnappyCompression: {
+      // Snappy压缩
       std::string* compressed = &r->compressed_output;
       if (port::Snappy_Compress(raw.data(), raw.size(), compressed) &&
           compressed->size() < raw.size() - (raw.size() / 8u)) {
@@ -179,6 +191,8 @@ void TableBuilder::WriteBlock(BlockBuilder* block, BlockHandle* handle) {
       } else {
         // Snappy not supported, or compressed less than 12.5%, so just
         // store uncompressed form
+        // Snappy不支持，或者压缩掉不到12.5%（不值得花费在解压缩的时间），
+        // 则以非压缩的形式存储
         block_contents = raw;
         type = kNoCompression;
       }
@@ -190,16 +204,23 @@ void TableBuilder::WriteBlock(BlockBuilder* block, BlockHandle* handle) {
   block->Reset();
 }
 
+// 向文件中写入block内数据，type，和前两者的校验和
+// param[in] block_contents : block内数据
+// param[in] type : block内数据的压缩类型 
+// param[out] handle : block在文件中的偏移位置和大小
 void TableBuilder::WriteRawBlock(const Slice& block_contents,
                                  CompressionType type, BlockHandle* handle) {
   Rep* r = rep_;
   handle->set_offset(r->offset);
+  // 是写入文件的block内数据的大小，不包括压缩类型和校验和
   handle->set_size(block_contents.size());
+  // 将block内容追加到可写文件中
   r->status = r->file->Append(block_contents);
   if (r->status.ok()) {
     char trailer[kBlockTrailerSize];
     trailer[0] = type;
     uint32_t crc = crc32c::Value(block_contents.data(), block_contents.size());
+    // 校验和包含type的校验和信息
     crc = crc32c::Extend(crc, trailer, 1);  // Extend crc to cover block type
     EncodeFixed32(trailer + 1, crc32c::Mask(crc));
     r->status = r->file->Append(Slice(trailer, kBlockTrailerSize));

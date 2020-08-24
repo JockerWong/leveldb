@@ -12,6 +12,7 @@ namespace leveldb {
 // See doc/table_format.md for an explanation of the filter block format.
 
 // Generate new filter every 2KB of data
+// 每2KB数据生成一个新filter
 static const size_t kFilterBaseLg = 11;
 static const size_t kFilterBase = 1 << kFilterBaseLg;
 
@@ -19,6 +20,10 @@ FilterBlockBuilder::FilterBlockBuilder(const FilterPolicy* policy)
     : policy_(policy) {}
 
 void FilterBlockBuilder::StartBlock(uint64_t block_offset) {
+  // 以2KB为base，偏移量block_offset对应第几个filter
+  // 【说明】以Options::block_size，每个block大小为4KB，因此，4KB的block数据
+  //     触发一次TableBuilder::Flush()，进而执行到这里。而base是2KB，因此可能
+  //     需要执行多次GenerateFilter()
   uint64_t filter_index = (block_offset / kFilterBase);
   assert(filter_index >= filter_offsets_.size());
   while (filter_index > filter_offsets_.size()) {

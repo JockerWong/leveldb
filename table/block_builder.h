@@ -34,6 +34,8 @@ class BlockBuilder {
   // Finish building the block and return a slice that refers to the
   // block contents.  The returned slice will remain valid for the
   // lifetime of this builder or until Reset() is called.
+  // 结束构造block，并返回一个引用block内容的Slice。
+  // 返回的Slice在该builder声明期内，或者直到调用Reset()之前，保持有效
   Slice Finish();
 
   // Returns an estimate of the current (uncompressed) size of the block
@@ -47,10 +49,12 @@ class BlockBuilder {
  private:
   const Options* options_;
   // Destination buffer
-  // 目标buffer，保存kv对数据
+  // 目标buffer。
+  // 保存kv对数据，末尾还保存restart点位置，和数量
   std::string buffer_;
   // Restart points
   // 重新开始压缩的点（buffer_中的下标）
+  // 每Options::block_restart_interval次添加key之后，重新开始压缩
   std::vector<uint32_t> restarts_;
   // Number of entries emitted since restart
   // restart之后发布的条目数量
