@@ -12,6 +12,7 @@
 
 namespace leveldb {
 
+// 压入变长64位的offset_和size_
 void BlockHandle::EncodeTo(std::string* dst) const {
   // Sanity check that all fields have been set
   assert(offset_ != ~static_cast<uint64_t>(0));

@@ -26,6 +26,7 @@ void FilterBlockBuilder::StartBlock(uint64_t block_offset) {
   }
 }
 
+// 新添加一个key
 void FilterBlockBuilder::AddKey(const Slice& key) {
   Slice k = key;
   start_.push_back(keys_.size());

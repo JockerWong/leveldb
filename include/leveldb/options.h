@@ -43,6 +43,10 @@ struct LEVELDB_EXPORT Options {
   // REQUIRES: The client must ensure that the comparator supplied
   // here has the same name and orders keys *exactly* the same as the
   // comparator provided to previous open calls on the same DB.
+  // 用于定义Table中key顺序的比较器。
+  // 默认：使用字典字节序的比较器。
+  // 要求：客户端必须保证这里提供的比较器和之前对同一DB的open调用提供的比较
+  //      器有相同的名字和key顺序。
   const Comparator* comparator;
 
   // If true, the database will be created if it is missing.
@@ -152,6 +156,8 @@ struct LEVELDB_EXPORT ReadOptions {
 
   // Should the data read for this iteration be cached in memory?
   // Callers may wish to set this field to false for bulk scans.
+  // 迭代读取的数据是否应该缓存到memory？
+  // 对于批量扫描调用者可能希望设为false。
   bool fill_cache = true;
 
   // If "snapshot" is non-null, read as of the supplied snapshot

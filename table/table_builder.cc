@@ -42,8 +42,8 @@ struct TableBuilder::Rep {
   Status status;
   BlockBuilder data_block;
   BlockBuilder index_block;
-  std::string last_key;
-  int64_t num_entries;
+  std::string last_key; // 最后一个添加的内部key
+  int64_t num_entries;  // 条目（kv对）数量
   bool closed;  // Either Finish() or Abandon() has been called.
   FilterBlockBuilder* filter_block;
 
@@ -56,8 +56,18 @@ struct TableBuilder::Rep {
   // blocks.
   //
   // Invariant: r->pending_index_entry is true only if data_block is empty.
+  // 我们直到看到下一个data block的第一个key，才发布block的index条目。这允许我们
+  // 在index block中使用更短的key。例如，考虑一个block的边界在key “the quick
+  // brown fox” 和 “the who” 之间。我们可以用 “the r” 作为index block条目的key，
+  // 因为它 >= 前一个block中所有条目 且 < 后续block中所有条目。
+  // 不变：只有data_block为空时，r->pending_index_entry为true。
+  //   【解释】data_block可以理解为“下一个data block”，它非空，就说明看到了它的
+  //    第一个key了。因此，它和前一个data block的边界，作为index block中对应前一
+  //    个data block的条目的key就可以确定了。
   bool pending_index_entry;
-  BlockHandle pending_handle;  // Handle to add to index block
+  // Handle to add to index block
+  // 要添加到index block的data block句柄
+  BlockHandle pending_handle;
 
   std::string compressed_output;
 };
@@ -96,18 +106,23 @@ void TableBuilder::Add(const Slice& key, const Slice& value) {
   assert(!r->closed);
   if (!ok()) return;
   if (r->num_entries > 0) {
+    // 如果已有kv对，key要比上一次（最后一个）添加的key“大”
     assert(r->options.comparator->Compare(key, Slice(r->last_key)) > 0);
   }
 
   if (r->pending_index_entry) {
+    // 还没有确定index block中（上一个data block的）条目的key
     assert(r->data_block.empty());
+    // 将r->last_key改为[r->last_key,key)之间的一个更短的key
     r->options.comparator->FindShortestSeparator(&r->last_key, key);
+    // 向index block中为“前一个data block”添加对应的条目
     std::string handle_encoding;
     r->pending_handle.EncodeTo(&handle_encoding);
     r->index_block.Add(r->last_key, Slice(handle_encoding));
     r->pending_index_entry = false;
   }
 
+  // 向filter block中添加key
   if (r->filter_block != nullptr) {
     r->filter_block->AddKey(key);
   }

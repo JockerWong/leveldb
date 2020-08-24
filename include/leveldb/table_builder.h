@@ -30,6 +30,8 @@ class LEVELDB_EXPORT TableBuilder {
   // Create a builder that will store the contents of the table it is
   // building in *file.  Does not close the file.  It is up to the
   // caller to close the file after calling Finish().
+  // 创建一个builder，将其构建的Table中的内容存储到*file中。
+  // 不关闭文件。在调用Finish()之后，有调用者关闭文件。
   TableBuilder(const Options& options, WritableFile* file);
 
   TableBuilder(const TableBuilder&) = delete;
@@ -49,6 +51,9 @@ class LEVELDB_EXPORT TableBuilder {
   // Add key,value to the table being constructed.
   // REQUIRES: key is after any previously added key according to comparator.
   // REQUIRES: Finish(), Abandon() have not been called
+  // 向要构建的Table中添加key,value
+  // 要求：根据比较器比较，key要排在所有已添加key之后。
+  // 声明：Finish()，Abandon()还没有调用过。
   void Add(const Slice& key, const Slice& value);
 
   // Advanced operation: flush any buffered key/value pairs to file.

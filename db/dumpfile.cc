@@ -107,14 +107,14 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
 
 // Called on every log record (each one of which is a WriteBatch)
 // found in a kLogFile.
-// 对kLogFile中的每个日志记录（每一个都是一个WriteBatch）调用。
-// param[in] pos : ???
+// 对 [0-9]+.log文件 中的每个日志记录（每一个都是一个WriteBatch）调用。
+// param[in] pos : 应该是这条记录在文件中的偏移
 // param[in] record : 所有的操作记录，可以作为WriteBatch的内容
 // param[in] dst : 向可写文件dst中追加日志记录
 // 如果record<12（8字节序列号，4字节count），太小，dst文件追加：
-//   "--- offset #pos#; log record length #record_size# is too small\n"
+//   "--- offset ${pos}; log record length ${record_size} is too small\n"
 // 否则，dst文件追加：
-//   "--- offset #pos#; sequence #sequence#\n"
+//   "--- offset ${pos}; sequence ${sequence}\n"
 //   后面再追加record中的每个操作记录
 //   如果中途处理失败，dst后追加：
 //     "  error: #errinfo#\n"
@@ -145,7 +145,7 @@ static void WriteBatchPrinter(uint64_t pos, Slice record, WritableFile* dst) {
   }
 }
 
-// 顺序读取fname文件，每读取一个record（对应一个WriteBatch）调用一次
+// 顺序读取fname文件（*.log文件），每读取一个record（对应一个WriteBatch）调用一次
 // WriteBatchPrinter方法，将记录以日志的形式写入到可写文件dst中
 Status DumpLog(Env* env, const std::string& fname, WritableFile* dst) {
   return PrintLogContents(env, fname, WriteBatchPrinter, dst);
@@ -153,6 +153,12 @@ Status DumpLog(Env* env, const std::string& fname, WritableFile* dst) {
 
 // Called on every log record (each one of which is a WriteBatch)
 // found in a kDescriptorFile.
+// 对 MANIFEST-[0-9]文件 中的每个日志记录（每一个都是一个WriteBatch）调用。
+// param[in] pos : 应该是这条记录在文件中的偏移
+// param[in] record : 清单的所有的操作记录，可以作为WriteBatch的内容
+// param[in] dst : 向可写文件dst中追加日志记录
+// 成功，dst文件追加："--- offset ${pos}; ${edit_debug_string}"
+// 否则，dst文件追加："--- offset ${pos}; ${status}\n"
 static void VersionEditPrinter(uint64_t pos, Slice record, WritableFile* dst) {
   std::string r = "--- offset ";
   AppendNumberTo(&r, pos);
@@ -168,16 +174,21 @@ static void VersionEditPrinter(uint64_t pos, Slice record, WritableFile* dst) {
   dst->Append(r);
 }
 
+// 顺序读取fname文件（MANIFEST-*文件），每读取一个record（对应一个WriteBatch）调用一次
+// VersionEditPrinter方法，将记录以日志的形式写入到可写文件dst中
 Status DumpDescriptor(Env* env, const std::string& fname, WritableFile* dst) {
   return PrintLogContents(env, fname, VersionEditPrinter, dst);
 }
 
+// 顺序读取fname文件（*.ldb|*.sst文件），每次读取一个kv对，将kv对以日志形式写入到
+// 可写文件dst中
 Status DumpTable(Env* env, const std::string& fname, WritableFile* dst) {
   uint64_t file_size;
   RandomAccessFile* file = nullptr;
   Table* table = nullptr;
   Status s = env->GetFileSize(fname, &file_size);
   if (s.ok()) {
+    // 随机访问文件
     s = env->NewRandomAccessFile(fname, &file);
   }
   if (s.ok()) {
@@ -185,6 +196,8 @@ Status DumpTable(Env* env, const std::string& fname, WritableFile* dst) {
     // comparator used in this database. However this should not cause
     // problems since we only use Table operations that do not require
     // any comparisons.  In particular, we do not call Seek or Prev.
+    // 使用默认的比较器，不一定匹配数据库使用的比较器。但这不应该有问题，因为
+    // 我们只使用不需任何比较的Table操作。尤其，我们不调用Seek或Prev。
     s = Table::Open(Options(), file, file_size, &table);
   }
   if (!s.ok()) {
@@ -198,8 +211,13 @@ Status DumpTable(Env* env, const std::string& fname, WritableFile* dst) {
   Iterator* iter = table->NewIterator(ro);
   std::string r;
   for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
+    // 内部key解析失败：
+    //   "badkey '${iter_key}' => '${iter_value}'\n"
+    // 内部key解析成功：
+    //   "'${user_key}' @ ${sequence} : del|val => '${iter_value}'\n"
     r.clear();
     ParsedInternalKey key;
+    // 从当前位置解析内部key
     if (!ParseInternalKey(iter->key(), &key)) {
       r = "badkey '";
       AppendEscapedStringTo(&r, iter->key());
@@ -245,11 +263,11 @@ Status DumpFile(Env* env, const std::string& fname, WritableFile* dst) {
     return Status::InvalidArgument(fname + ": unknown file type");
   }
   switch (ftype) {
-    case kLogFile:
+    case kLogFile:        // .log 文件
       return DumpLog(env, fname, dst);
-    case kDescriptorFile:
+    case kDescriptorFile: // MANIFEST-* 清单文件
       return DumpDescriptor(env, fname, dst);
-    case kTableFile:
+    case kTableFile:      // .ldb|.sst文件
       return DumpTable(env, fname, dst);
     default:
       break;

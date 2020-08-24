@@ -25,7 +25,7 @@ void AppendNumberTo(std::string* str, uint64_t num);
 // Append a human-readable printout of "value" to *str.
 // Escapes any non-printable characters found in "value".
 // 将value的hunman-readable打印输出，追加到str末尾。
-// 转移value中有不可打印的字符。
+// 转义value中有不可打印的字符。
 void AppendEscapedStringTo(std::string* str, const Slice& value);
 
 // Return a human-readable printout of "num"

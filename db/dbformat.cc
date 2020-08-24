@@ -12,6 +12,7 @@
 
 namespace leveldb {
 
+// 将序列号seq和值类型t打包到同一个8字节数据中，并返回(seq<<8|t)
 static uint64_t PackSequenceAndType(uint64_t seq, ValueType t) {
   assert(seq <= kMaxSequenceNumber);
   assert(t <= kValueTypeForSeek);
@@ -23,6 +24,8 @@ void AppendInternalKey(std::string* result, const ParsedInternalKey& key) {
   PutFixed64(result, PackSequenceAndType(key.sequence, key.type));
 }
 
+// 返回内部key的debug信息
+// "'${转义的user_key}' @ ${sequence} : ${type}"
 std::string ParsedInternalKey::DebugString() const {
   std::ostringstream ss;
   ss << '\'' << EscapeString(user_key.ToString()) << "' @ " << sequence << " : "
@@ -30,6 +33,9 @@ std::string ParsedInternalKey::DebugString() const {
   return ss.str();
 }
 
+// 返回内部key的debug信息。
+// 如果能解析成ParsedInternalKey对象，则调用其DebugString()接口；
+// 否则，打印："(bad)${转义的rep_}"
 std::string InternalKey::DebugString() const {
   ParsedInternalKey parsed;
   if (ParseInternalKey(rep_, &parsed)) {
@@ -48,13 +54,13 @@ const char* InternalKeyComparator::Name() const {
 //	 < 0 iff "a" < "b",
 //	 == 0 iff "a" == "b",
 //	 > 0 iff "a" > "b"
+//	用户key使用用户提供的user_comparator_：a>b则返回正；a<b则返回负
+//	序列号：a<b则返回正；a>b则返回负
 int InternalKeyComparator::Compare(const Slice& akey, const Slice& bkey) const {
   // Order by:
   //    increasing user key (according to user-supplied comparator)
   //    decreasing sequence number
   //    decreasing type (though sequence# should be enough to disambiguate)
-  //	用户提供的user_comparator_：a>b则返回正；a<b则返回负
-  //	序列号：a<b则返回正；a>b则返回负
   int r = user_comparator_->Compare(ExtractUserKey(akey), ExtractUserKey(bkey));
   if (r == 0) {
     const uint64_t anum = DecodeFixed64(akey.data() + akey.size() - 8);
@@ -68,17 +74,22 @@ int InternalKeyComparator::Compare(const Slice& akey, const Slice& bkey) const {
   return r;
 }
 
+// 如果内部key start 的用户key < 内部key user_limit 的用户key，
+// 改变为[start,limit)内的短string，节省空间（用最大序列号补齐）。
 void InternalKeyComparator::FindShortestSeparator(std::string* start,
                                                   const Slice& limit) const {
   // Attempt to shorten the user portion of the key
   Slice user_start = ExtractUserKey(*start);
   Slice user_limit = ExtractUserKey(limit);
+  // 如果tmp<user_limit，改变为[tmp,user_limit)内的短string，节省空间
   std::string tmp(user_start.data(), user_start.size());
   user_comparator_->FindShortestSeparator(&tmp, user_limit);
   if (tmp.size() < user_start.size() &&
       user_comparator_->Compare(user_start, tmp) < 0) {
     // User key has become shorter physically, but larger logically.
     // Tack on the earliest possible number to the shortened user key.
+    // 用户key物理上变短了，但逻辑上变大了。
+    // 把最早（最大）的序列号钉在缩短的用户key上。
     PutFixed64(&tmp,
                PackSequenceAndType(kMaxSequenceNumber, kValueTypeForSeek));
     assert(this->Compare(*start, tmp) < 0);
@@ -87,14 +98,18 @@ void InternalKeyComparator::FindShortestSeparator(std::string* start,
   }
 }
 
+// 将内部key key 中的用户key 缩减，只要排序不变小就行（用最大序列号补齐）。
 void InternalKeyComparator::FindShortSuccessor(std::string* key) const {
   Slice user_key = ExtractUserKey(*key);
   std::string tmp(user_key.data(), user_key.size());
+  // 将tmp缩减，只要排序不变小就行。
   user_comparator_->FindShortSuccessor(&tmp);
   if (tmp.size() < user_key.size() &&
       user_comparator_->Compare(user_key, tmp) < 0) {
     // User key has become shorter physically, but larger logically.
     // Tack on the earliest possible number to the shortened user key.
+    // 用户key物理上变短了，但逻辑上变大了。
+    // 把最早（最大）的序列号钉在缩短的用户key上。
     PutFixed64(&tmp,
                PackSequenceAndType(kMaxSequenceNumber, kValueTypeForSeek));
     assert(this->Compare(*key, tmp) < 0);

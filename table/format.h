@@ -39,8 +39,8 @@ class BlockHandle {
   Status DecodeFrom(Slice* input);
 
  private:
-  uint64_t offset_;
-  uint64_t size_;
+  uint64_t offset_;   // 初始化为全1（无效）
+  uint64_t size_;     // 初始化为全1（无效）
 };
 
 // Footer encapsulates the fixed information stored at the tail

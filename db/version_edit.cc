@@ -11,6 +11,7 @@ namespace leveldb {
 
 // Tag numbers for serialized VersionEdit.  These numbers are written to
 // disk and should not be changed.
+// 序列化的VersionEdit使用的tag
 enum Tag {
   kComparator = 1,
   kLogNumber = 2,
@@ -83,8 +84,10 @@ void VersionEdit::EncodeTo(std::string* dst) const {
   }
 }
 
+// 从input中读出 带长度的内部key<用户key|序列号和值类型>，并赋值给dst
 static bool GetInternalKey(Slice* input, InternalKey* dst) {
   Slice str;
+  // 读出 带长度的字符串 str
   if (GetLengthPrefixedSlice(input, &str)) {
     return dst->DecodeFrom(str);
   } else {
@@ -92,6 +95,7 @@ static bool GetInternalKey(Slice* input, InternalKey* dst) {
   }
 }
 
+// 读出 32位变长的 level，要求小于7
 static bool GetLevel(Slice* input, int* level) {
   uint32_t v;
   if (GetVarint32(input, &v) && v < config::kNumLevels) {
@@ -115,9 +119,11 @@ Status VersionEdit::DecodeFrom(const Slice& src) {
   Slice str;
   InternalKey key;
 
+  // 循环的读取 32位变长的tag
   while (msg == nullptr && GetVarint32(&input, &tag)) {
     switch (tag) {
       case kComparator:
+        // 带长度的 比较器名字
         if (GetLengthPrefixedSlice(&input, &str)) {
           comparator_ = str.ToString();
           has_comparator_ = true;
@@ -127,6 +133,7 @@ Status VersionEdit::DecodeFrom(const Slice& src) {
         break;
 
       case kLogNumber:
+        // 64位变长的 log number
         if (GetVarint64(&input, &log_number_)) {
           has_log_number_ = true;
         } else {
@@ -135,6 +142,7 @@ Status VersionEdit::DecodeFrom(const Slice& src) {
         break;
 
       case kPrevLogNumber:
+        // 64位变长的 prev log number
         if (GetVarint64(&input, &prev_log_number_)) {
           has_prev_log_number_ = true;
         } else {
@@ -143,6 +151,7 @@ Status VersionEdit::DecodeFrom(const Slice& src) {
         break;
 
       case kNextFileNumber:
+        // 64位变长的 next file number
         if (GetVarint64(&input, &next_file_number_)) {
           has_next_file_number_ = true;
         } else {
@@ -151,6 +160,7 @@ Status VersionEdit::DecodeFrom(const Slice& src) {
         break;
 
       case kLastSequence:
+        // 64位变长的 last sequence
         if (GetVarint64(&input, &last_sequence_)) {
           has_last_sequence_ = true;
         } else {
@@ -159,6 +169,7 @@ Status VersionEdit::DecodeFrom(const Slice& src) {
         break;
 
       case kCompactPointer:
+        // 读取 32位变长的level 和 内部key
         if (GetLevel(&input, &level) && GetInternalKey(&input, &key)) {
           compact_pointers_.push_back(std::make_pair(level, key));
         } else {
@@ -167,6 +178,7 @@ Status VersionEdit::DecodeFrom(const Slice& src) {
         break;
 
       case kDeletedFile:
+        // 读取 32位变长的level 和 64位变长的 number
         if (GetLevel(&input, &level) && GetVarint64(&input, &number)) {
           deleted_files_.insert(std::make_pair(level, number));
         } else {
@@ -175,6 +187,8 @@ Status VersionEdit::DecodeFrom(const Slice& src) {
         break;
 
       case kNewFile:
+        // 读取 32位变长的level 和 文件元数据（序列号，大小，最小内部key，
+        // 最大内部key）
         if (GetLevel(&input, &level) && GetVarint64(&input, &f.number) &&
             GetVarint64(&input, &f.file_size) &&
             GetInternalKey(&input, &f.smallest) &&

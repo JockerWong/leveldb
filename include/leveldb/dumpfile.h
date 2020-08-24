@@ -20,6 +20,10 @@ namespace leveldb {
 //
 // Returns a non-OK result if fname does not name a leveldb storage
 // file, or if the file cannot be read.
+// 将名为fname的文件的内容以文本格式转储到（可写文件）*dst。
+// 导致一系列的dst->Append()调用；每次调用都传递与文件中找到的一项相对应的
+// 换行符结束的文本。
+// 如果fname不是leveldb存储文件的名字，或者该文件不可读，则返回非OK结果。
 LEVELDB_EXPORT Status DumpFile(Env* env, const std::string& fname,
                                WritableFile* dst);
 

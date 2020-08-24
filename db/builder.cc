@@ -20,15 +20,18 @@ Status BuildTable(const std::string& dbname, Env* env, const Options& options,
   meta->file_size = 0;
   iter->SeekToFirst();
 
+  // 文件名：“${dbname}/${meta->number}.ldb”
   std::string fname = TableFileName(dbname, meta->number);
   if (iter->Valid()) {
     WritableFile* file;
+    // 创建一个新文件，以及一个向其写入的WritableFile
     s = env->NewWritableFile(fname, &file);
     if (!s.ok()) {
       return s;
     }
 
     TableBuilder* builder = new TableBuilder(options, file);
+    // 第一个位置的内部key，是最小内部key
     meta->smallest.DecodeFrom(iter->key());
     for (; iter->Valid(); iter->Next()) {
       Slice key = iter->key();

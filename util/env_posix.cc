@@ -246,6 +246,7 @@ class PosixMmapReadableFile final : public RandomAccessFile {
   const std::string filename_;
 };
 
+// POSIX的可写文件
 class PosixWritableFile final : public WritableFile {
  public:
   PosixWritableFile(std::string filename, int fd)
@@ -392,6 +393,8 @@ class PosixWritableFile final : public WritableFile {
   // Returns the directory name in a path pointing to a file.
   //
   // Returns "." if the path does not contain any directory separator.
+  // 返回指向文件的路径中的路径名。
+  // 如果路径没有包含任何目录分隔符，返回“.”。
   static std::string Dirname(const std::string& filename) {
     std::string::size_type separator_pos = filename.rfind('/');
     if (separator_pos == std::string::npos) {
@@ -408,6 +411,8 @@ class PosixWritableFile final : public WritableFile {
   //
   // The returned Slice points to |filename|'s data buffer, so it is only valid
   // while |filename| is alive and unchanged.
+  // 从指向文件的路径中抽取文件名字。
+  // 返回的Slice指向 filename 的buffer，因此它只在filename存在且为改变时有效。
   static Slice Basename(const std::string& filename) {
     std::string::size_type separator_pos = filename.rfind('/');
     if (separator_pos == std::string::npos) {
@@ -415,6 +420,7 @@ class PosixWritableFile final : public WritableFile {
     }
     // The filename component should not contain a path separator. If it does,
     // the splitting was done incorrectly.
+    // filename 不应该包含路径分隔符。
     assert(filename.find('/', separator_pos + 1) == std::string::npos);
 
     return Slice(filename.data() + separator_pos + 1,
@@ -429,10 +435,10 @@ class PosixWritableFile final : public WritableFile {
   // buf_[0, pos_ - 1] contains data to be written to fd_.
   char buf_[kWritableFileBufferSize];
   size_t pos_;
-  int fd_;
+  int fd_;                  // 文件描述符
 
   const bool is_manifest_;  // True if the file's name starts with MANIFEST.
-  const std::string filename_;
+  const std::string filename_; // 文件名
   const std::string dirname_;  // The directory of filename_.
 };
 
@@ -544,6 +550,8 @@ class PosixEnv : public Env {
 
   Status NewWritableFile(const std::string& filename,
                          WritableFile** result) override {
+    // O_CREAT: 如果需要，按照参数mode(0644)访问模式创建文件
+    // O_TRUNC: 文件长度设置为0，丢弃已有内容
     int fd = ::open(filename.c_str(),
                     O_TRUNC | O_WRONLY | O_CREAT | kOpenBaseFlags, 0644);
     if (fd < 0) {

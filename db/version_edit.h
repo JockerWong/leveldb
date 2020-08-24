@@ -60,6 +60,9 @@ class VersionEdit {
   // Add the specified file at the specified number.
   // REQUIRES: This version has not been saved (see VersionSet::SaveTo)
   // REQUIRES: "smallest" and "largest" are smallest and largest keys in file
+  // 添加指定的文件元数据。
+  // 要求：version没有保存（见VersionSet::SaveTo）
+  // 要求：smallest和largest分别是文件中的最小内部key和最大内部key
   void AddFile(int level, uint64_t file, uint64_t file_size,
                const InternalKey& smallest, const InternalKey& largest) {
     FileMetaData f;
@@ -85,10 +88,10 @@ class VersionEdit {
 
   typedef std::set<std::pair<int, uint64_t>> DeletedFileSet;
 
-  std::string comparator_;
+  std::string comparator_;        // 比较器名字
   uint64_t log_number_;
   uint64_t prev_log_number_;
-  uint64_t next_file_number_;
+  uint64_t next_file_number_;     // 单调递增的序列号，用于区分文件
   SequenceNumber last_sequence_;
   bool has_comparator_;
   bool has_log_number_;
@@ -96,8 +99,11 @@ class VersionEdit {
   bool has_next_file_number_;
   bool has_last_sequence_;
 
+  // first:level, second:internal_key
   std::vector<std::pair<int, InternalKey>> compact_pointers_;
+  // first:level, second:文件序列号
   DeletedFileSet deleted_files_;
+  // first:level，second:文件元数据
   std::vector<std::pair<int, FileMetaData>> new_files_;
 };
 

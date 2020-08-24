@@ -36,6 +36,8 @@ class LEVELDB_EXPORT Iterator {
 
   // Position at the first key in the source.  The iterator is Valid()
   // after this call iff the source is not empty.
+  // 放到source中第一个key处。
+  // 当且仅当source非空时，该调用之后迭代器有效
   virtual void SeekToFirst() = 0;
 
   // Position at the last key in the source.  The iterator is
@@ -61,12 +63,18 @@ class LEVELDB_EXPORT Iterator {
   // the returned slice is valid only until the next modification of
   // the iterator.
   // REQUIRES: Valid()
+  // 返回当前条目的（内部）key。
+  // 仅在该迭代器下一次修改之前，返回的Slice的底层存储有效。
+  // 要求：Valid()
   virtual Slice key() const = 0;
 
   // Return the value for the current entry.  The underlying storage for
   // the returned slice is valid only until the next modification of
   // the iterator.
   // REQUIRES: Valid()
+  // 返回当前条目的value。
+  // 仅在该迭代器下一次修改之前，返回的Slice的底层存储有效。
+  // 要求：Valid()
   virtual Slice value() const = 0;
 
   // If an error has occurred, return it.  Else return an ok status.

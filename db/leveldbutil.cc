@@ -11,6 +11,7 @@
 namespace leveldb {
 namespace {
 
+// 打印到标准输出 stdout
 class StdoutPrinter : public WritableFile {
  public:
   Status Append(const Slice& data) override {
@@ -22,6 +23,7 @@ class StdoutPrinter : public WritableFile {
   Status Sync() override { return Status::OK(); }
 };
 
+// 将files中指定的num个文件以文本的形式转储打印到标准输出
 bool HandleDumpCommand(Env* env, char** files, int num) {
   StdoutPrinter printer;
   bool ok = true;

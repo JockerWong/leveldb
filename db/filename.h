@@ -19,13 +19,13 @@ namespace leveldb {
 class Env;
 
 enum FileType {
-  kLogFile,         // .log文件
-  kDBLockFile,
-  kTableFile,       // .sst 或 .ldb 文件
-  kDescriptorFile,
-  kCurrentFile,
-  kTempFile,
-  kInfoLogFile  // Either the current one, or an old one
+  kLogFile,         // [0-9]+.log文件
+  kDBLockFile,      // LOCK文件
+  kTableFile,       // [0-9]+.sst 或 [0-9]+.ldb 文件
+  kDescriptorFile,  // MANIFEST-[0-9]+ 清单文件
+  kCurrentFile,     // CURRENT文件
+  kTempFile,        // [0-9]+.dbtmp文件
+  kInfoLogFile  // Either the current one, or an old one  // LOG或LOG.old
 };
 
 // Return the name of the log file with the specified number
@@ -36,11 +36,14 @@ std::string LogFileName(const std::string& dbname, uint64_t number);
 // Return the name of the sstable with the specified number
 // in the db named by "dbname".  The result will be prefixed with
 // "dbname".
+// 返回名为dbname的db中，包含指定number的SSTable的名字。
+// 结果有“dbname”前缀。
 std::string TableFileName(const std::string& dbname, uint64_t number);
 
 // Return the legacy file name for an sstable with the specified number
 // in the db named by "dbname". The result will be prefixed with
 // "dbname".
+// 遗留的文件名字，同TableFileName。
 std::string SSTTableFileName(const std::string& dbname, uint64_t number);
 
 // Return the name of the descriptor file for the db named by

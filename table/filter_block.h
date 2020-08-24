@@ -27,6 +27,10 @@ class FilterPolicy;
 //
 // The sequence of calls to FilterBlockBuilder must match the regexp:
 //      (StartBlock AddKey*)* Finish
+// FilterBlockBuilder用于为指定Table构造所有filter。
+// 它生成一个string，作为一个特殊block存储在Table中。
+// 对FilterBlockBuilder的一系列调用必须匹配：
+//      (StartBlock AddKey*)* Finish
 class FilterBlockBuilder {
  public:
   explicit FilterBlockBuilder(const FilterPolicy*);
@@ -42,10 +46,17 @@ class FilterBlockBuilder {
   void GenerateFilter();
 
   const FilterPolicy* policy_;
-  std::string keys_;             // Flattened key contents
-  std::vector<size_t> start_;    // Starting index in keys_ of each key
-  std::string result_;           // Filter data computed so far
-  std::vector<Slice> tmp_keys_;  // policy_->CreateFilter() argument
+  // Flattened key contents
+  // 扁平地保存了所有的key
+  std::string keys_;
+  // Starting index in keys_ of each key
+  // 每个key在keys_中的开始索引
+  std::vector<size_t> start_;
+  // Filter data computed so far
+  // 到目前为止，计算的过滤器数据
+  std::string result_;
+  // policy_->CreateFilter() argument
+  std::vector<Slice> tmp_keys_;
   std::vector<uint32_t> filter_offsets_;
 };
 

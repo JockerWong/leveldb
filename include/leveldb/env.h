@@ -86,6 +86,10 @@ class LEVELDB_EXPORT Env {
   // not exist.
   //
   // The returned file may be concurrently accessed by multiple threads.
+  // 创建一个支持随机访问的对象从指定名字（fname）的文件读取。
+  // 如果成功，将指向新的RandomAccessFile对象的指针存储到*result，并返回OK。
+  // 如果失败，将nullptr存储到*result，并返回非OK。
+  // 如果文件不存在，返回非OK状态，实现应该返回一个NotFound状态。
   virtual Status NewRandomAccessFile(const std::string& fname,
                                      RandomAccessFile** result) = 0;
 
@@ -96,6 +100,9 @@ class LEVELDB_EXPORT Env {
   // returns non-OK.
   //
   // The returned file will only be accessed by one thread at a time.
+  // 创建向一个指定名字的新文件写入的对象。删除同名的所有已有文件并创建一个新
+  // 文件。如果成功，在*result中存入指向新文件的指针，并返回OK。如果失败，在
+  // *result中存入nullptr，并返回非OK。
   virtual Status NewWritableFile(const std::string& fname,
                                  WritableFile** result) = 0;
 
@@ -339,6 +346,8 @@ LEVELDB_EXPORT Status ReadFileToString(Env* env, const std::string& fname,
 // An implementation of Env that forwards all calls to another Env.
 // May be useful to clients who wish to override just part of the
 // functionality of another Env.
+// Env的一种实现，将所有调用转发给另一个Env。
+// 对希望override另一个Env的部分方法的客户端可能有用。
 class LEVELDB_EXPORT EnvWrapper : public Env {
  public:
   // Initialize an EnvWrapper that delegates all calls to *t.

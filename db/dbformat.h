@@ -51,6 +51,7 @@ class InternalKey;
 // Value types encoded as the last component of internal keys.
 // DO NOT CHANGE THESE ENUM VALUES: they are embedded in the on-disk
 // data structures.
+// 它们被嵌入磁盘上的数据结构中了，不能改变这些枚举的值
 enum ValueType { kTypeDeletion = 0x0, kTypeValue = 0x1 };
 // kValueTypeForSeek defines the ValueType that should be passed when
 // constructing a ParsedInternalKey object for seeking to a particular
@@ -58,6 +59,12 @@ enum ValueType { kTypeDeletion = 0x0, kTypeValue = 0x1 };
 // and the value type is embedded as the low 8 bits in the sequence
 // number in internal keys, we need to use the highest-numbered
 // ValueType, not the lowest).
+// 简单说，就是ValueType枚举的最大值。
+// kValueTypeForSeek定义为 当构造一个ParsedInternalKey对象以寻找指定的
+// 序列号（由于我们按降序（a<b则为正）排序序列号，而value type被嵌入到内
+// 部key的序列号中，因此，我们应该使用ValueType的最大值）时，应该传入的
+// ValueType值。
+// 说明：这样就能保证构造的ParsedInternalKey是同序列号中最小的了。
 static const ValueType kValueTypeForSeek = kTypeValue;
 
 typedef uint64_t SequenceNumber;
@@ -66,6 +73,7 @@ typedef uint64_t SequenceNumber;
 // can be packed together into 64-bits.
 static const SequenceNumber kMaxSequenceNumber = ((0x1ull << 56) - 1);
 
+// 被解析的内部key
 struct ParsedInternalKey {
   Slice user_key;
   SequenceNumber sequence;
@@ -91,19 +99,20 @@ void AppendInternalKey(std::string* result, const ParsedInternalKey& key);
 // On error, returns false, leaves "*result" in an undefined state.
 bool ParseInternalKey(const Slice& internal_key, ParsedInternalKey* result);
 
-// internal key中最后8字节存储的是序列号和值类型信息
 // Returns the user key portion of an internal key.
+// internal key中最后8字节存储的是序列号和值类型信息
 inline Slice ExtractUserKey(const Slice& internal_key) {
   assert(internal_key.size() >= 8);
   return Slice(internal_key.data(), internal_key.size() - 8);
 }
 
-// 内部key的比较器，为用户key部分使用指定的比较器，并以降序的序列号打破平局的情况
-// 内部key的最后8字节是序列号和值类型信息
 // A comparator for internal keys that uses a specified comparator for
 // the user key portion and breaks ties by decreasing sequence number.
+// 内部key的比较器，为用户key部分使用指定的比较器，并以降序的序列号打破平局的情况
+// 内部key的最后8字节是序列号和值类型信息
 class InternalKeyComparator : public Comparator {
  private:
+  // 用户指定的用于比较用户key的比较器
   const Comparator* user_comparator_;
 
  public:
@@ -120,6 +129,7 @@ class InternalKeyComparator : public Comparator {
 };
 
 // Filter policy wrapper that converts from internal keys to user keys
+// 将内部key转换为用户key的 过滤器策略
 class InternalFilterPolicy : public FilterPolicy {
  private:
   const FilterPolicy* const user_policy_;
@@ -134,16 +144,22 @@ class InternalFilterPolicy : public FilterPolicy {
 // Modules in this directory should keep internal keys wrapped inside
 // the following class instead of plain strings so that we do not
 // incorrectly use string comparisons instead of an InternalKeyComparator.
+// 应该将内部key包装到下面的类（InternalKey）中，而不是普通string，这样我们就
+// 不会错误的使用string比较而不是InternalKeyComparator了。
 class InternalKey {
  private:
+  // user_key|序列号和值类型信息（1字节）
   std::string rep_;
 
  public:
   InternalKey() {}  // Leave rep_ as empty to indicate it is invalid
   InternalKey(const Slice& user_key, SequenceNumber s, ValueType t) {
+    // ### 这里每次InternalKey的构造函数中都要额外的构造一次ParsedInternalKey
+    // 临时对象，是不是可以考虑优化一下
     AppendInternalKey(&rep_, ParsedInternalKey(user_key, s, t));
   }
 
+  // 用s中的内容赋值给rep_
   bool DecodeFrom(const Slice& s) {
     rep_.assign(s.data(), s.size());
     return !rep_.empty();
@@ -174,6 +190,7 @@ inline int InternalKeyComparator::Compare(const InternalKey& a,
 inline bool ParseInternalKey(const Slice& internal_key,
                              ParsedInternalKey* result) {
   const size_t n = internal_key.size();
+  // 末尾8字节的序列号和值类型信息
   if (n < 8) return false;
   uint64_t num = DecodeFixed64(internal_key.data() + n - 8);
   uint8_t c = num & 0xff;
