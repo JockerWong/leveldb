@@ -60,6 +60,10 @@ class LEVELDB_EXPORT TableBuilder {
   // Can be used to ensure that two adjacent entries never live in
   // the same data block.  Most clients should not need to use this method.
   // REQUIRES: Finish(), Abandon() have not been called
+  // 高级操作：将buffer中所有kv对刷到文件中。
+  // 可用于确保两个相邻的条目永远不会位于同一data block中。大多数client应该不需要
+  // 使用该方法。
+  // 要求：Finish()，Abandon()还没有被调用。
   void Flush();
 
   // Return non-ok iff some error has been detected.

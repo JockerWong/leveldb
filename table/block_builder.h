@@ -26,6 +26,9 @@ class BlockBuilder {
 
   // REQUIRES: Finish() has not been called since the last call to Reset().
   // REQUIRES: key is larger than any previously added key
+  // 向Block中添加一个kv对
+  // 要求：上次Reset()之后没有调用过Finish()。
+  // 要求：key比所有已添加的key都“大”。
   void Add(const Slice& key, const Slice& value);
 
   // Finish building the block and return a slice that refers to the
@@ -35,6 +38,7 @@ class BlockBuilder {
 
   // Returns an estimate of the current (uncompressed) size of the block
   // we are building.
+  // 返回正在构建的block的当前（未压缩）大小的估值
   size_t CurrentSizeEstimate() const;
 
   // Return true iff no entries have been added since the last Reset()
@@ -42,10 +46,17 @@ class BlockBuilder {
 
  private:
   const Options* options_;
-  std::string buffer_;              // Destination buffer
-  std::vector<uint32_t> restarts_;  // Restart points
-  int counter_;                     // Number of entries emitted since restart
+  // Destination buffer
+  // 目标buffer，保存kv对数据
+  std::string buffer_;
+  // Restart points
+  // 重新开始压缩的点（buffer_中的下标）
+  std::vector<uint32_t> restarts_;
+  // Number of entries emitted since restart
+  // restart之后发布的条目数量
+  int counter_;
   bool finished_;                   // Has Finish() been called?
+  // 最后一个添加的key
   std::string last_key_;
 };
 

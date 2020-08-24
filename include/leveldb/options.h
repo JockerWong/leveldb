@@ -101,11 +101,20 @@ struct LEVELDB_EXPORT Options {
   // block size specified here corresponds to uncompressed data.  The
   // actual size of the unit read from disk may be smaller if
   // compression is enabled.  This parameter can be changed dynamically.
+  // 每个block打包的用户数据的粗略大小。
+  // 【注意】这里指定的block大小对应的是未压缩的数据。如果启用了压缩，从磁盘读取的单元
+  //        的真实大小可能更小。
+  // 该参数可以动态修改。
   size_t block_size = 4 * 1024;
 
   // Number of keys between restart points for delta encoding of keys.
   // This parameter can be changed dynamically.  Most clients should
   // leave this parameter alone.
+  // key的增量编码的restart点之间，key的数量。
+  // 该参数可以动态修改。大多数client应该不适用该参数。
+  // 【说明】key使用了“共享相同前缀”的方式压缩，如果这种压缩一直持续下去，就可能出现
+  //        这种情况：要读取第100个key的前缀数据，需要到第1个key读取，这样读取成本
+  //        反而会增大。
   int block_restart_interval = 16;
 
   // Leveldb will write up to this amount of bytes to a file before

@@ -72,8 +72,12 @@ void BlockBuilder::Add(const Slice& key, const Slice& value) {
   Slice last_key_piece(last_key_);
   assert(!finished_);
   assert(counter_ <= options_->block_restart_interval);
+  // 新添加的key要比已添加的key都“大”
   assert(buffer_.empty()  // No values yet?
          || options_->comparator->Compare(key, last_key_piece) > 0);
+  // key与前一个key，从第0个字节开始，可共享（相同）的字节长度
+  // 【说明】这是一种压缩手段，key是按照字典序排序的，因此相邻的两个key很有可能有较长
+  //        一段字符是重复的。
   size_t shared = 0;
   if (counter_ < options_->block_restart_interval) {
     // See how much sharing to do with previous string
@@ -83,9 +87,11 @@ void BlockBuilder::Add(const Slice& key, const Slice& value) {
     }
   } else {
     // Restart compression
+    // 重新开始压缩
     restarts_.push_back(buffer_.size());
     counter_ = 0;
   }
+  // key与前一个key，剩余的不能共享的字节长度
   const size_t non_shared = key.size() - shared;
 
   // Add "<shared><non_shared><value_size>" to buffer_
@@ -94,10 +100,12 @@ void BlockBuilder::Add(const Slice& key, const Slice& value) {
   PutVarint32(&buffer_, value.size());
 
   // Add string delta to buffer_ followed by value
+  // 只追加key中“不能和前一个key共享”的字节，和value
   buffer_.append(key.data() + shared, non_shared);
   buffer_.append(value.data(), value.size());
 
   // Update state
+  // 更新“最后一个添加的key”
   last_key_.resize(shared);
   last_key_.append(key.data() + shared, non_shared);
   assert(Slice(last_key_) == key);
