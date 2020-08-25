@@ -160,6 +160,8 @@ struct LEVELDB_EXPORT Options {
   // If non-null, use the specified filter policy to reduce disk reads.
   // Many applications will benefit from passing the result of
   // NewBloomFilterPolicy() here.
+  // 如果非空，使用指定的过滤策略来减少磁盘读取。
+  // 很多应用程序从 将NewBloomFilterPolicy()的结果传递到这里 受益
   const FilterPolicy* filter_policy = nullptr;
 };
 

@@ -336,6 +336,7 @@ void LRUCache::Prune() {
 static const int kNumShardBits = 4;
 static const int kNumShards = 1 << kNumShardBits;
 
+// 标准的最近最少被使用 Cache
 class ShardedLRUCache : public Cache {
  private:
   LRUCache shard_[kNumShards];

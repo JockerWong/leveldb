@@ -29,11 +29,14 @@ Status BlockHandle::DecodeFrom(Slice* input) {
   }
 }
 
+// 向dst中压入 metaindex block 和 index block 的句柄，以及一个魔法数字
 void Footer::EncodeTo(std::string* dst) const {
   const size_t original_size = dst->size();
   metaindex_handle_.EncodeTo(dst);
   index_handle_.EncodeTo(dst);
+  // 两个block句柄最长会各自占用20字节，因此这里将系列化长度补充到40字节。
   dst->resize(2 * BlockHandle::kMaxEncodedLength);  // Padding
+  // 魔法数字，先低32位，后高32位。
   PutFixed32(dst, static_cast<uint32_t>(kTableMagicNumber & 0xffffffffu));
   PutFixed32(dst, static_cast<uint32_t>(kTableMagicNumber >> 32));
   assert(dst->size() == original_size + kEncodedLength);

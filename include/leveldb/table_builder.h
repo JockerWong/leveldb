@@ -60,7 +60,7 @@ class LEVELDB_EXPORT TableBuilder {
   // Can be used to ensure that two adjacent entries never live in
   // the same data block.  Most clients should not need to use this method.
   // REQUIRES: Finish(), Abandon() have not been called
-  // 高级操作：将buffer中所有kv对刷到文件中。
+  // 高级操作：将（data block中）所有缓存的kv对刷到文件中。
   // 可用于确保两个相邻的条目永远不会位于同一data block中。大多数client应该不需要
   // 使用该方法。
   // 要求：Finish()，Abandon()还没有被调用。
@@ -72,6 +72,14 @@ class LEVELDB_EXPORT TableBuilder {
   // Finish building the table.  Stops using the file passed to the
   // constructor after this function returns.
   // REQUIRES: Finish(), Abandon() have not been called
+  // 结束构造Table。在函数返回之后，停止使用传递给构造函数的文件。
+  // 要求：Finish()，Abandon()没有调用过
+  // 构建Table结束：
+  // 1. 将最后的 data block 中kv对数据，写入文件
+  // 2. 将 filter block（作为一种meta block）写入文件
+  // 3. 将 metaindex block 写入文件
+  // 4. 将 index block 写入文件
+  // 5. 将 Footer 写入文件
   Status Finish();
 
   // Indicate that the contents of this builder should be abandoned.  Stops
@@ -86,6 +94,8 @@ class LEVELDB_EXPORT TableBuilder {
 
   // Size of the file generated so far.  If invoked after a successful
   // Finish() call, returns the size of the final generated file.
+  // 到目前为止生成的文件的大小。
+  // 如果在成功调用Finish()之后调用，则返回最终生成的文件的大小。
   uint64_t FileSize() const;
 
  private:

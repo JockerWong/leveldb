@@ -32,6 +32,8 @@ class LEVELDB_EXPORT FilterPolicy {
   // changes in an incompatible way, the name returned by this method
   // must be changed.  Otherwise, old incompatible filters may be
   // passed to methods of this type.
+  // 返回策略的名字。注意，如果filter编码以不兼容的方式更改，该方法返回的名字
+  // 必须更改。
   virtual const char* Name() const = 0;
 
   // keys[0,n-1] contains a list of keys (potentially with duplicates)

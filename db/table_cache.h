@@ -31,6 +31,10 @@ class TableCache {
   // underlies the returned iterator.  The returned "*tableptr" object is owned
   // by the cache and should not be deleted, and is valid for as long as the
   // returned iterator is live.
+  // 为指定的文件序号（对应的文件长度必须是file_size字节）返回一个迭代器。如果tableptr
+  // 非空，设置*tableptr指向返回迭代器下的Table对象，如果返回迭代器下没有Table对象，设
+  // 置*tableptr为nullptr。返回的*tableptr对象属于缓存，不应该被删除，且只要返回的迭代
+  // 器还存活，它就有效。
   Iterator* NewIterator(const ReadOptions& options, uint64_t file_number,
                         uint64_t file_size, Table** tableptr = nullptr);
 

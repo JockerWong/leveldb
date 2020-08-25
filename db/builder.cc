@@ -33,6 +33,7 @@ Status BuildTable(const std::string& dbname, Env* env, const Options& options,
     TableBuilder* builder = new TableBuilder(options, file);
     // 第一个位置的内部key，是最小内部key
     meta->smallest.DecodeFrom(iter->key());
+    // 用iter执行遍历，将所有kv对添加到builder中
     for (; iter->Valid(); iter->Next()) {
       Slice key = iter->key();
       meta->largest.DecodeFrom(key);
@@ -42,6 +43,7 @@ Status BuildTable(const std::string& dbname, Env* env, const Options& options,
     // Finish and check for builder errors
     s = builder->Finish();
     if (s.ok()) {
+      // 最终生成有序表文件（*.sst|*.ldb）的大小
       meta->file_size = builder->FileSize();
       assert(meta->file_size > 0);
     }
@@ -49,9 +51,11 @@ Status BuildTable(const std::string& dbname, Env* env, const Options& options,
 
     // Finish and check for file errors
     if (s.ok()) {
+      // 刷到持久化介质中
       s = file->Sync();
     }
     if (s.ok()) {
+      // 关闭可写文件（对应的磁盘文件）
       s = file->Close();
     }
     delete file;
@@ -59,6 +63,7 @@ Status BuildTable(const std::string& dbname, Env* env, const Options& options,
 
     if (s.ok()) {
       // Verify that the table is usable
+      // 验证Table是否可用
       Iterator* it = table_cache->NewIterator(ReadOptions(), meta->number,
                                               meta->file_size);
       s = it->status();

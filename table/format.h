@@ -20,6 +20,7 @@ struct ReadOptions;
 
 // BlockHandle is a pointer to the extent of a file that stores a data
 // block or a meta block.
+// BlockHandle是一个指向存储一个data block或一个meta block的文件范围的指针。
 class BlockHandle {
  public:
   // Maximum encoding length of a BlockHandle
@@ -47,11 +48,14 @@ class BlockHandle {
 
 // Footer encapsulates the fixed information stored at the tail
 // end of every table file.
+// Footer 封装了存储在每个Table文件（*.sst|*.ldb）末尾的固定格式
 class Footer {
  public:
   // Encoded length of a Footer.  Note that the serialization of a
   // Footer will always occupy exactly this many bytes.  It consists
   // of two block handles and a magic number.
+  // Footer的编码长度。注意，Footer的序列化始终占用这么多字节（48字节）。它包含两个
+  // block句柄（每个20字节）和一个魔法数字（8字节）。
   enum { kEncodedLength = 2 * BlockHandle::kMaxEncodedLength + 8 };
 
   Footer() = default;

@@ -55,6 +55,7 @@ constexpr const int kOpenBaseFlags = O_CLOEXEC;
 constexpr const int kOpenBaseFlags = 0;
 #endif  // defined(HAVE_O_CLOEXEC)
 
+// 可写文件接口的缓存大小为64KB
 constexpr const size_t kWritableFileBufferSize = 65536;
 
 Status PosixError(const std::string& context, int error_number) {
@@ -263,11 +264,13 @@ class PosixWritableFile final : public WritableFile {
     }
   }
 
+  // 追加数据，根据情况，可能需要刷到磁盘文件
   Status Append(const Slice& data) override {
     size_t write_size = data.size();
     const char* write_data = data.data();
 
     // Fit as much as possible into buffer.
+    // 尽可能放入缓冲区buf_（最多放64KB）。
     size_t copy_size = std::min(write_size, kWritableFileBufferSize - pos_);
     std::memcpy(buf_ + pos_, write_data, copy_size);
     write_data += copy_size;
@@ -278,12 +281,14 @@ class PosixWritableFile final : public WritableFile {
     }
 
     // Can't fit in buffer, so need to do at least one write.
+    // 缓冲区装不下，先把缓冲区数据刷到磁盘文件
     Status status = FlushBuffer();
     if (!status.ok()) {
       return status;
     }
 
     // Small writes go to buffer, large writes are written directly.
+    // 缓冲区能装下的小的写入，放入缓冲区；装不下的大的写入，直接写到磁盘文件。
     if (write_size < kWritableFileBufferSize) {
       std::memcpy(buf_, write_data, write_size);
       pos_ = write_size;
@@ -292,6 +297,7 @@ class PosixWritableFile final : public WritableFile {
     return WriteUnbuffered(write_data, write_size);
   }
 
+  // 最后，将缓冲区数据刷到磁盘文件，并关闭文件
   Status Close() override {
     Status status = FlushBuffer();
     const int close_result = ::close(fd_);
@@ -302,14 +308,18 @@ class PosixWritableFile final : public WritableFile {
     return status;
   }
 
+  // 将缓冲的文件数据刷到磁盘文件
   Status Flush() override { return FlushBuffer(); }
 
+  // 将文件同步到持久化介质中。
   Status Sync() override {
     // Ensure new files referred to by the manifest are in the filesystem.
     //
     // This needs to happen before the manifest file is flushed to disk, to
     // avoid crashing in a state where the manifest refers to files that are not
     // yet on disk.
+    // 确保清单（MANIFEST）引用的新文件在文件系统中。
+    // 这需要在清单文件刷到磁盘之前发生，以免在清单引用尚未在磁盘上的文件时发生崩溃。
     Status status = SyncDirIfManifest();
     if (!status.ok()) {
       return status;
@@ -324,12 +334,14 @@ class PosixWritableFile final : public WritableFile {
   }
 
  private:
+  // 将缓冲区数据刷到磁盘文件（write操作）
   Status FlushBuffer() {
     Status status = WriteUnbuffered(buf_, pos_);
     pos_ = 0;
     return status;
   }
 
+  // 将数据写入磁盘文件（write操作）
   Status WriteUnbuffered(const char* data, size_t size) {
     while (size > 0) {
       ssize_t write_result = ::write(fd_, data, size);
@@ -345,12 +357,14 @@ class PosixWritableFile final : public WritableFile {
     return Status::OK();
   }
 
+  // 如果是清单文件，确保目录同步到持久化介质。
   Status SyncDirIfManifest() {
     Status status;
     if (!is_manifest_) {
       return status;
     }
 
+    // ??? 用open系统调用打开filename_所在的目录
     int fd = ::open(dirname_.c_str(), O_RDONLY | kOpenBaseFlags);
     if (fd < 0) {
       status = PosixError(dirname_, errno);
@@ -367,6 +381,8 @@ class PosixWritableFile final : public WritableFile {
   //
   // The path argument is only used to populate the description string in the
   // returned Status if an error occurs.
+  // 确保与给定fd的数据相关联的cache，全部刷到持久化介质，且能够容忍断电故障。
+  // path参数只用于在发生错误时，填充返回状态的描述字符串。
   static Status SyncFd(int fd, const std::string& fd_path) {
 #if HAVE_FULLFSYNC
     // On macOS and iOS, fsync() doesn't guarantee durability past power
@@ -393,7 +409,7 @@ class PosixWritableFile final : public WritableFile {
   // Returns the directory name in a path pointing to a file.
   //
   // Returns "." if the path does not contain any directory separator.
-  // 返回指向文件的路径中的路径名。
+  // 返回指向文件的路径中的目录名。
   // 如果路径没有包含任何目录分隔符，返回“.”。
   static std::string Dirname(const std::string& filename) {
     std::string::size_type separator_pos = filename.rfind('/');

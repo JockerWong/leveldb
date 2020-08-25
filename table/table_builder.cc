@@ -56,6 +56,7 @@ struct TableBuilder::Rep {
   // blocks.
   //
   // Invariant: r->pending_index_entry is true only if data_block is empty.
+  // 悬而未决的index block中（对应上一个data block）的条目。
   // 我们直到看到下一个data block的第一个key，才发布block的index条目。这允许我们
   // 在index block中使用更短的key。例如，考虑一个block的边界在key “the quick
   // brown fox” 和 “the who” 之间。我们可以用 “the r” 作为index block条目的key，
@@ -67,6 +68,7 @@ struct TableBuilder::Rep {
   bool pending_index_entry;
   // Handle to add to index block
   // 要添加到index block的data block句柄
+  // 【解释】由于还没有找到句柄在index block中对应的“更短”的key。
   BlockHandle pending_handle;
 
   // 对要存盘的内容进行（Snappy）压缩的输出结果
@@ -128,6 +130,7 @@ void TableBuilder::Add(const Slice& key, const Slice& value) {
     r->filter_block->AddKey(key);
   }
 
+  // 为last_key赋新值
   r->last_key.assign(key.data(), key.size());
   r->num_entries++;
   r->data_block.Add(key, value);
@@ -234,6 +237,7 @@ Status TableBuilder::status() const { return rep_->status; }
 
 Status TableBuilder::Finish() {
   Rep* r = rep_;
+  // 将kv对数据刷到文件中
   Flush();
   assert(!r->closed);
   r->closed = true;
@@ -241,16 +245,19 @@ Status TableBuilder::Finish() {
   BlockHandle filter_block_handle, metaindex_block_handle, index_block_handle;
 
   // Write filter block
+  // 如果有filter block，（作为一种元数据）写入文件，并设置对应的句柄filter_block_handle
   if (ok() && r->filter_block != nullptr) {
     WriteRawBlock(r->filter_block->Finish(), kNoCompression,
                   &filter_block_handle);
   }
 
   // Write metaindex block
+  // 将metaindex block 写入文件，其中包含filter block对应的条目
   if (ok()) {
     BlockBuilder meta_index_block(&r->options);
     if (r->filter_block != nullptr) {
       // Add mapping from "filter.Name" to location of filter data
+      // metaindex block 中增加 filter.Name 到 filter数据位置 的映射
       std::string key = "filter.";
       key.append(r->options.filter_policy->Name());
       std::string handle_encoding;
@@ -263,8 +270,10 @@ Status TableBuilder::Finish() {
   }
 
   // Write index block
+  // 将index block写入文件，要先将最后一个data block的句柄加入到index block中
   if (ok()) {
     if (r->pending_index_entry) {
+      // 最后一个data block的边界，只要大于等于其中最后一个key就行
       r->options.comparator->FindShortSuccessor(&r->last_key);
       std::string handle_encoding;
       r->pending_handle.EncodeTo(&handle_encoding);
@@ -275,12 +284,14 @@ Status TableBuilder::Finish() {
   }
 
   // Write footer
+  // 向文件中写入Footer数据
   if (ok()) {
     Footer footer;
     footer.set_metaindex_handle(metaindex_block_handle);
     footer.set_index_handle(index_block_handle);
     std::string footer_encoding;
     footer.EncodeTo(&footer_encoding);
+    // 将Footer序列化结果追加到文件中
     r->status = r->file->Append(footer_encoding);
     if (r->status.ok()) {
       r->offset += footer_encoding.size();
