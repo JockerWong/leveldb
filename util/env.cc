@@ -22,6 +22,7 @@ Status Env::NewAppendableFile(const std::string& fname, WritableFile** result) {
   return Status::NotSupported("NewAppendableFile", fname);
 }
 
+// 新旧两个方法相互调用，用户必须要override其中一个。
 Status Env::RemoveDir(const std::string& dirname) { return DeleteDir(dirname); }
 Status Env::DeleteDir(const std::string& dirname) { return RemoveDir(dirname); }
 

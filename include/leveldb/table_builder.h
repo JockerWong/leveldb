@@ -9,6 +9,9 @@
 // external synchronization, but if any of the threads may call a
 // non-const method, all threads accessing the same TableBuilder must use
 // external synchronization.
+// TableBuilder提供了用于构建一个Table（不可变、存储了从key到value的映射）的接口。
+// 多线程可在没有外部同步的情况下调用TableBuilder的const方法，但如果任何线程要调用
+// 非const方法，所有访问同一TableBuilder的线程必须使用外部同步。
 
 #ifndef STORAGE_LEVELDB_INCLUDE_TABLE_BUILDER_H_
 #define STORAGE_LEVELDB_INCLUDE_TABLE_BUILDER_H_
@@ -31,7 +34,7 @@ class LEVELDB_EXPORT TableBuilder {
   // building in *file.  Does not close the file.  It is up to the
   // caller to close the file after calling Finish().
   // 创建一个builder，将其构建的Table中的内容存储到*file中。
-  // 不关闭文件。在调用Finish()之后，有调用者关闭文件。
+  // 不关闭file。在调用Finish()之后，有调用者关闭file。
   TableBuilder(const Options& options, WritableFile* file);
 
   TableBuilder(const TableBuilder&) = delete;
@@ -46,12 +49,16 @@ class LEVELDB_EXPORT TableBuilder {
   // passed to the constructor is different from its value in the
   // structure passed to this method, this method will return an error
   // without changing any fields.
+  // 修改builder使用的选项。
+  // 注意：在构造之后，只有部分选项字段可以改变。如果某字段不允许动态改变，
+  // 并且构造函数传递的值和该方法传递的值不同，该方法不改变任何字段，并返回
+  // 一个错误。
   Status ChangeOptions(const Options& options);
 
   // Add key,value to the table being constructed.
   // REQUIRES: key is after any previously added key according to comparator.
   // REQUIRES: Finish(), Abandon() have not been called
-  // 向要构建的Table中添加key,value
+  // 向要构建的Table中添加key,value（加到data block和filter block中）。
   // 要求：根据比较器比较，key要排在所有已添加key之后。
   // 声明：Finish()，Abandon()还没有调用过。
   void Add(const Slice& key, const Slice& value);
@@ -87,6 +94,9 @@ class LEVELDB_EXPORT TableBuilder {
   // If the caller is not going to call Finish(), it must call Abandon()
   // before destroying this builder.
   // REQUIRES: Finish(), Abandon() have not been called
+  // 表明应该放弃该builder的内容。在该函数返回之后，停止使用传递给构造函数的文件。
+  // 如果调用者不打算调用Finish()，它必须在销毁这个builder之前调用Abandon()。
+  // 要求：Finish()，Abandon()没有调用过
   void Abandon();
 
   // Number of calls to Add() so far.

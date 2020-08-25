@@ -28,6 +28,7 @@ struct TableBuilder::Rep {
         index_block(&index_block_options),
         num_entries(0),
         closed(false),
+        // 根据选项中filter策略，确定filter block
         filter_block(opt.filter_policy == nullptr
                          ? nullptr
                          : new FilterBlockBuilder(opt.filter_policy)),
@@ -36,6 +37,7 @@ struct TableBuilder::Rep {
   }
 
   Options options;
+  // ??? 没感觉到它有什么实质的用途，应该是在index_block中通过引用的方式使用的
   Options index_block_options;
   WritableFile* file;   // 用于往对应文件中写入
   uint64_t offset;      // 当前的文件偏移量
@@ -45,7 +47,7 @@ struct TableBuilder::Rep {
   std::string last_key; // 最后一个添加的内部key
   int64_t num_entries;  // 条目（kv对）数量
   bool closed;  // Either Finish() or Abandon() has been called.
-  FilterBlockBuilder* filter_block;
+  FilterBlockBuilder* filter_block; // filter block 算是一种meta block
 
   // We do not emit the index entry for a block until we have seen the
   // first key for the next data block.  This allows us to use shorter
@@ -92,12 +94,16 @@ Status TableBuilder::ChangeOptions(const Options& options) {
   // Note: if more fields are added to Options, update
   // this function to catch changes that should not be allowed to
   // change in the middle of building a Table.
+  // 注意：如果Options增加了更多的字段，需要更新该函数，以捕获在构建一个Table的过程
+  //       中不允许的修改。
+  // 不允许中途修改比较器
   if (options.comparator != rep_->options.comparator) {
     return Status::InvalidArgument("changing comparator while building table");
   }
 
   // Note that any live BlockBuilders point to rep_->options and therefore
   // will automatically pick up the updated options.
+  // 注意：所有存活的BlockBuilder都指向rep_->options，因此它们将自动获取更新后的选项。
   rep_->options = options;
   rep_->index_block_options = options;
   rep_->index_block_options.block_restart_interval = 1;
@@ -160,12 +166,13 @@ void TableBuilder::Flush() {
   }
 }
 
+// 将data block中的数据，按照指定的压缩类型，写到文件中。之后data block重置。
 // File格式中包含一系列的block，其中每个block包含：
 //     block_data: uint8[n]   可能压缩了的block数据
 //     type: uint8            数据压缩类型
 //     crc: uint32            32位校验和（前两者的）
 // param[in] block : 要写入文件的block
-// param[out] handle : block在文件中的偏移位置和大小
+// param[out] handle : block在文件中的句柄
 void TableBuilder::WriteBlock(BlockBuilder* block, BlockHandle* handle) {
   // File format contains a sequence of blocks where each block has:
   //    block_data: uint8[n]

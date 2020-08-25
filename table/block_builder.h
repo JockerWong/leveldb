@@ -35,7 +35,7 @@ class BlockBuilder {
   // block contents.  The returned slice will remain valid for the
   // lifetime of this builder or until Reset() is called.
   // 结束构造block，并返回一个引用block内容的Slice。
-  // 返回的Slice在该builder声明期内，或者直到调用Reset()之前，保持有效
+  // 返回的Slice在该builder生命内，或者直到调用Reset()之前，保持有效
   Slice Finish();
 
   // Returns an estimate of the current (uncompressed) size of the block

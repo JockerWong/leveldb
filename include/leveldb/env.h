@@ -138,6 +138,10 @@ class LEVELDB_EXPORT Env {
   //
   // A future release will remove DeleteDir and the default implementation of
   // RemoveDir.
+  // 删除文件fname。
+  // 默认实现调用DeleteFile()，以支持遗留的Env实现。更新的Env实现必须override
+  // RemoveFile()并忽略DeleteFile()的存在。更新的调用Env API的代码必须调用
+  // RemoveFile()而不是DeleteFile()。
   virtual Status RemoveFile(const std::string& fname);
 
   // DEPRECATED: Modern Env implementations should override RemoveFile instead.
@@ -147,6 +151,10 @@ class LEVELDB_EXPORT Env {
   // code should call RemoveFile.
   //
   // A future release will remove this method.
+  // 弃用：现在的Env实现应该override RemoveFile。
+  // 默认实现是调用RemoveFile()，以支持在现代Env实现中，遗留的调用了该方法的Env用户
+  // 代码。现代的Env用户应该调用RemoveFile()。
+  // 未来的发布版本将移除该方法。
   virtual Status DeleteFile(const std::string& fname);
 
   // Create the specified directory.

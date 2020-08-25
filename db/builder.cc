@@ -72,10 +72,12 @@ Status BuildTable(const std::string& dbname, Env* env, const Options& options,
   }
 
   // Check for input iterator errors
+  // 检查输入迭代器iter的状态
   if (!iter->status().ok()) {
     s = iter->status();
   }
 
+  // 如果存在问题，或者文件大小为0，则删除文件fname。
   if (s.ok() && meta->file_size > 0) {
     // Keep it
   } else {

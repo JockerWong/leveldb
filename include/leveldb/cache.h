@@ -129,6 +129,7 @@ class LEVELDB_EXPORT Cache {
   void Unref(Handle* e);
 
   // 没有找到这个Rep的定义和rep_的使用
+  // 这里可参照TableBuilder和Table的设计，它们都是在源文件中定义类内Rep结构的。
   struct Rep;
   Rep* rep_;
 };
