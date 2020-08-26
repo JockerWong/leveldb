@@ -19,11 +19,14 @@ static const size_t kFilterBase = 1 << kFilterBaseLg;
 FilterBlockBuilder::FilterBlockBuilder(const FilterPolicy* policy)
     : policy_(policy) {}
 
+// param[in] block_offset : block开始位置的偏移量
 void FilterBlockBuilder::StartBlock(uint64_t block_offset) {
   // 以2KB为base，偏移量block_offset对应第几个filter
   // 【说明】以Options::block_size，每个block大小为4KB，因此，4KB的block数据
   //     触发一次TableBuilder::Flush()，进而执行到这里。而base是2KB，因此可能
-  //     需要执行多次GenerateFilter()
+  //     需要执行多次GenerateFilter()。
+  //     然而，一个block的开始位置偏移量block_offset只能落在一个base范围内，也
+  //     就只有一个只对应一个有效filter。
   uint64_t filter_index = (block_offset / kFilterBase);
   assert(filter_index >= filter_offsets_.size());
   while (filter_index > filter_offsets_.size()) {
@@ -44,12 +47,15 @@ Slice FilterBlockBuilder::Finish() {
   }
 
   // Append array of per-filter offsets
+  // result_末尾追加每个filter的偏移量
   const uint32_t array_offset = result_.size();
   for (size_t i = 0; i < filter_offsets_.size(); i++) {
     PutFixed32(&result_, filter_offsets_[i]);
   }
 
+  // result_末尾追加filter offset数组的偏移量
   PutFixed32(&result_, array_offset);
+  // 最后，result_末尾追加base的对数
   result_.push_back(kFilterBaseLg);  // Save encoding parameter in result
   return Slice(result_);
 }
@@ -72,6 +78,7 @@ void FilterBlockBuilder::GenerateFilter() {
   }
 
   // Generate filter for current set of keys and append to result_.
+  // 为当前keys_中的所有key，生成一个filter，并追加到result_末尾。
   filter_offsets_.push_back(result_.size());
   policy_->CreateFilter(&tmp_keys_[0], static_cast<int>(num_keys), &result_);
 

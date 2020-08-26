@@ -42,6 +42,9 @@ class LEVELDB_EXPORT FilterPolicy {
   //
   // Warning: do not change the initial contents of *dst.  Instead,
   // append the newly constructed filter to *dst.
+  // keys[0,n-1]包含一系列的key（可能有重复的），它们根据用户提供的比较器排序。
+  // 将概述keys[0,n-1]的filter追加到*dst。
+  // 警告：不要改变*dst的初始内容。而是将新构造的filter追加到*dst。
   virtual void CreateFilter(const Slice* keys, int n,
                             std::string* dst) const = 0;
 

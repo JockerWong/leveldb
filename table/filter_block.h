@@ -56,6 +56,7 @@ class FilterBlockBuilder {
   // 到目前为止，计算的过滤器数据
   std::string result_;
   // policy_->CreateFilter() argument
+  // 底层数据还是存储在keys_中
   std::vector<Slice> tmp_keys_;
   std::vector<uint32_t> filter_offsets_;
 };

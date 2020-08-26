@@ -50,7 +50,7 @@ class BlockBuilder {
   const Options* options_;
   // Destination buffer
   // 目标buffer。
-  // 保存kv对数据，末尾还保存restart点位置，和数量
+  // 保存kv对数据，末尾还保存所有restart点位置，和restart点数量
   std::string buffer_;
   // Restart points
   // 重新开始压缩的点（buffer_中的下标）
