@@ -53,6 +53,9 @@ class LEVELDB_EXPORT FilterPolicy {
   // the key was in the list of keys passed to CreateFilter().
   // This method may return true or false if the key was not on the
   // list, but it should aim to return false with a high probability.
+  // filter 包含前面调用该类上的CreateFilter()所追加的数据。
+  // 如果参数“key”在传递给CreateFilter()的key列表中，必须返回true。
+  // 如果参数“key”不在列表中，可能返回true或false，但应该以高概率返回false。
   virtual bool KeyMayMatch(const Slice& key, const Slice& filter) const = 0;
 };
 

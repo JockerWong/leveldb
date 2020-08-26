@@ -51,6 +51,7 @@ class FilterBlockBuilder {
   std::string keys_;
   // Starting index in keys_ of each key
   // 每个key在keys_中的开始索引
+  // 其数量代表，keys_中当前还未用于生成filter的key的数量
   std::vector<size_t> start_;
   // Filter data computed so far
   // 到目前为止，计算的过滤器数据
@@ -58,21 +59,34 @@ class FilterBlockBuilder {
   // policy_->CreateFilter() argument
   // 底层数据还是存储在keys_中
   std::vector<Slice> tmp_keys_;
+  // 生成的每个filter在result_开始位置的偏移量
+  // 其数量代表，已生成的filter的数量
   std::vector<uint32_t> filter_offsets_;
 };
 
 class FilterBlockReader {
  public:
   // REQUIRES: "contents" and *policy must stay live while *this is live.
+  // param[in] policy : 过滤策略
+  // param[in] contents : filter block内容
   FilterBlockReader(const FilterPolicy* policy, const Slice& contents);
   bool KeyMayMatch(uint64_t block_offset, const Slice& key);
 
  private:
   const FilterPolicy* policy_;
-  const char* data_;    // Pointer to filter data (at block-start)
-  const char* offset_;  // Pointer to beginning of offset array (at block-end)
-  size_t num_;          // Number of entries in offset array
-  size_t base_lg_;      // Encoding parameter (see kFilterBaseLg in .cc file)
+  // Pointer to filter data (at block-start)
+  // 指向filter 0（在filter block的开头）
+  const char* data_;
+  // Pointer to beginning of offset array (at block-end)
+  // 指向filter offset数组的开头，也就是filter 0 的offset。
+  // （在filter block的末尾，后面仅有一个base的对数）
+  const char* offset_;
+  // Number of entries in offset array
+  // filter offset数量，对应filter数量
+  size_t num_;
+  // Encoding parameter (see kFilterBaseLg in .cc file)
+  // base的对数
+  size_t base_lg_;
 };
 
 }  // namespace leveldb
