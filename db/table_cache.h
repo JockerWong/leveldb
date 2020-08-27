@@ -35,6 +35,7 @@ class TableCache {
   // 非空，设置*tableptr指向返回迭代器下的Table对象，如果返回迭代器下没有Table对象，设
   // 置*tableptr为nullptr。返回的*tableptr对象属于该缓存，不应该被删除，且只要返回的迭
   // 代器还存活，它就有效。
+  // 【理解】这应该是基于LRU淘汰机制，而迭代器存货，说明该Table还在被使用。
   Iterator* NewIterator(const ReadOptions& options, uint64_t file_number,
                         uint64_t file_size, Table** tableptr = nullptr);
 
@@ -57,6 +58,7 @@ class TableCache {
   const std::string dbname_;
   const Options& options_;
   // 一个Cache，构造函数中构造了一个LRU淘汰策略的Cache（ShardedLRUCache）
+  // key: file number, value: TableAndFile的指针
   Cache* cache_;
 };
 

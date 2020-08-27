@@ -16,6 +16,7 @@ struct TableAndFile {
   Table* table;
 };
 
+// 用于删除TableCache::cache_内的条目
 static void DeleteEntry(const Slice& key, void* value) {
   TableAndFile* tf = reinterpret_cast<TableAndFile*>(value);
   delete tf->table;
@@ -23,12 +24,18 @@ static void DeleteEntry(const Slice& key, void* value) {
   delete tf;
 }
 
+// 用于Cache释放一个Handle
+// param[in] arg1 : 指向Cache的指针
+// param[in] arg2 : 指向要释放的Handle的指针
 static void UnrefEntry(void* arg1, void* arg2) {
   Cache* cache = reinterpret_cast<Cache*>(arg1);
   Cache::Handle* h = reinterpret_cast<Cache::Handle*>(arg2);
   cache->Release(h);
 }
 
+// param[in] dbname : 数据库名
+// param[in] options : 选项
+// param[in] entries : 内部cache_的容量
 TableCache::TableCache(const std::string& dbname, const Options& options,
                        int entries)
     : env_(options.env),
@@ -38,8 +45,9 @@ TableCache::TableCache(const std::string& dbname, const Options& options,
 
 TableCache::~TableCache() { delete cache_; }
 
-// 从cache_中找到文件序号为file_name，对应的映射，并将映射句柄存储到*handle。
-// 如果cache_中没有该映射条目，则插入一个。
+// 从cache_中找到文件序号file_number，对应的映射，并将映射句柄存储到*handle。
+// 如果cache_中没有该映射条目，则打开存储在file_number对应文件前file_size字节
+// 范围的Table，并将对应的TableAndFile插入cache_。
 // 如果成功，则返回OK；如果在插入cache_的过程中发生错误，则返回一个非OK状态。
 Status TableCache::FindTable(uint64_t file_number, uint64_t file_size,
                              Cache::Handle** handle) {
@@ -96,6 +104,7 @@ Iterator* TableCache::NewIterator(const ReadOptions& options,
     *tableptr = nullptr;
   }
 
+  // 在cache_内找到file_number对应的映射
   Cache::Handle* handle = nullptr;
   Status s = FindTable(file_number, file_size, &handle);
   if (!s.ok()) {
@@ -104,6 +113,8 @@ Iterator* TableCache::NewIterator(const ReadOptions& options,
 
   Table* table = reinterpret_cast<TableAndFile*>(cache_->Value(handle))->table;
   Iterator* result = table->NewIterator(options);
+  // 向迭代器注册一个清除三元组，
+  // 在迭代器销毁时，调用 UnrefEntry(cache_, handle)，让cache_释放该Handle。
   result->RegisterCleanup(&UnrefEntry, cache_, handle);
   if (tableptr != nullptr) {
     *tableptr = table;
@@ -115,10 +126,13 @@ Status TableCache::Get(const ReadOptions& options, uint64_t file_number,
                        uint64_t file_size, const Slice& k, void* arg,
                        void (*handle_result)(void*, const Slice&,
                                              const Slice&)) {
+  // 在cache_内找到file_number对应的映射
   Cache::Handle* handle = nullptr;
   Status s = FindTable(file_number, file_size, &handle);
   if (s.ok()) {
     Table* t = reinterpret_cast<TableAndFile*>(cache_->Value(handle))->table;
+    // 在Table中找到这个k，执行调用(*handle_result)(arg, k, v)
+    // 然后释放这个Handle
     s = t->InternalGet(options, k, arg, handle_result);
     cache_->Release(handle);
   }
