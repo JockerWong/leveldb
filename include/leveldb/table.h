@@ -40,8 +40,8 @@ class LEVELDB_EXPORT Table {
   // for the duration of the returned table's lifetime.
   //
   // *file must remain live while this Table is in use.
-  // 企图打开存储在file中[0..file_size)字节中的Table，并读取从Table检索数据
-  // 所必需的元数据条目。
+  // 企图打开存储在file中[0..file_size)字节范围内的Table，并读取从Table检索
+  // 数据所必需的元数据条目。
   // 如果成功，返回ok并设置*table为新打开的Table。不再使用时，client应该删除
   // *table。
   // 如果初始化Table时发生错误，设置*table为nullptr并返回一个非ok状态。

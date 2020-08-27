@@ -33,6 +33,8 @@ class LEVELDB_EXPORT Cache;
 
 // Create a new cache with a fixed size capacity.  This implementation
 // of Cache uses a least-recently-used eviction policy.
+// 以固定大小的容量创建一个Cache。
+// 该Cache的实现使用 LRU 的淘汰策略。
 LEVELDB_EXPORT Cache* NewLRUCache(size_t capacity);
 
 class LEVELDB_EXPORT Cache {

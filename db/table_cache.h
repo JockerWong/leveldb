@@ -33,18 +33,21 @@ class TableCache {
   // returned iterator is live.
   // 为指定的文件序号（对应的文件长度必须是file_size字节）返回一个迭代器。如果tableptr
   // 非空，设置*tableptr指向返回迭代器下的Table对象，如果返回迭代器下没有Table对象，设
-  // 置*tableptr为nullptr。返回的*tableptr对象属于缓存，不应该被删除，且只要返回的迭代
-  // 器还存活，它就有效。
+  // 置*tableptr为nullptr。返回的*tableptr对象属于该缓存，不应该被删除，且只要返回的迭
+  // 代器还存活，它就有效。
   Iterator* NewIterator(const ReadOptions& options, uint64_t file_number,
                         uint64_t file_size, Table** tableptr = nullptr);
 
   // If a seek to internal key "k" in specified file finds an entry,
   // call (*handle_result)(arg, found_key, found_value).
+  // 在指定文件中搜索内部key “k”，如果找到了，则调用
+  // handle_result(arg, 找到的key, 找到的value)
   Status Get(const ReadOptions& options, uint64_t file_number,
              uint64_t file_size, const Slice& k, void* arg,
              void (*handle_result)(void*, const Slice&, const Slice&));
 
   // Evict any entry for the specified file number
+  // 为指定文件淘汰所有条目
   void Evict(uint64_t file_number);
 
  private:
@@ -53,6 +56,7 @@ class TableCache {
   Env* const env_;
   const std::string dbname_;
   const Options& options_;
+  // 一个Cache，构造函数中构造了一个LRU淘汰策略的Cache（ShardedLRUCache）
   Cache* cache_;
 };
 

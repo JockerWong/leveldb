@@ -38,12 +38,14 @@ std::string LogFileName(const std::string& dbname, uint64_t number);
 // "dbname".
 // 返回名为dbname的db中，包含指定number的SSTable的名字。
 // 结果有“dbname”前缀。
+// "${dbname}/${number}.ldb"
 std::string TableFileName(const std::string& dbname, uint64_t number);
 
 // Return the legacy file name for an sstable with the specified number
 // in the db named by "dbname". The result will be prefixed with
 // "dbname".
 // 遗留的文件名字，同TableFileName。
+// "${dbname}/${number}.sst"
 std::string SSTTableFileName(const std::string& dbname, uint64_t number);
 
 // Return the name of the descriptor file for the db named by

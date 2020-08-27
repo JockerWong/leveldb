@@ -86,7 +86,7 @@ class LEVELDB_EXPORT Env {
   // not exist.
   //
   // The returned file may be concurrently accessed by multiple threads.
-  // 创建一个支持随机访问的对象从指定名字（fname）的文件读取。
+  // 创建一个从指定名字（fname）的文件读取，支持随机访问的对象。
   // 如果成功，将指向新的RandomAccessFile对象的指针存储到*result，并返回OK。
   // 如果失败，将nullptr存储到*result，并返回非OK。
   // 如果文件不存在，返回非OK状态，实现应该返回一个NotFound状态。
@@ -269,6 +269,7 @@ class LEVELDB_EXPORT SequentialFile {
 };
 
 // A file abstraction for randomly reading the contents of a file.
+// 随机读取一个文件的内容的文件抽象。
 class LEVELDB_EXPORT RandomAccessFile {
  public:
   RandomAccessFile() = default;
@@ -287,6 +288,13 @@ class LEVELDB_EXPORT RandomAccessFile {
   // status.
   //
   // Safe for concurrent use by multiple threads.
+  // 从文件中offset偏移开始，读取多达n个字节。
+  // scratch[0..n-1]可能会被该例程写入。
+  // 设置*result指向读取的数据（包括成功读取的少于n个字节）。
+  // 可能设置*result指向scrach[0..n-1]中的数据，所以在*result被使用时，
+  // scrach[0..n-1]必须存活。
+  // 如果发生错误，返回一个非OK状态。
+  // 多线程并发使用安全。
   virtual Status Read(uint64_t offset, size_t n, Slice* result,
                       char* scratch) const = 0;
 };

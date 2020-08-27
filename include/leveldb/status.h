@@ -24,6 +24,7 @@ namespace leveldb {
 class LEVELDB_EXPORT Status {
  public:
   // Create a success status.
+  // 默认是OK
   Status() noexcept : state_(nullptr) {}
   ~Status() { delete[] state_; }
 
