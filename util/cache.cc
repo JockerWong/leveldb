@@ -37,12 +37,28 @@ namespace {
 // Elements are moved between these lists by the Ref() and Unref() methods,
 // when they detect an element in the cache acquiring or losing its only
 // external reference.
+//
+// LRU Cache 实现
+// Cache条目有一个 “in_cache” bool字段表示Cache是否有一个指向该条目的引用。不将该
+// 条目传递给它的 “deleter” 就能让该字段变false的方法包括：通过Erase()，通过Insert()
+// 插入包含已插入的key的元素，或者Cache的析构函数。
+// 该Cache为其中的 item 维护两个链表。Cache中的所有 item 在某一链表中，不会同时存在
+// 于两个链表之中。仍然被client引用但已经从Cache中删除的item不在任何链表中。两个链表
+// 分别是：
+// - in-use：包含当前被client引用的item，无序。（该链表用于不变检查(invariant checking)。
+//    如果我们移除这个检查，那么原本在此链表上的元素可以保留为断链的单个lists。）
+// - LRU：包含当前没有被client引用的item，按照LRU顺序。
+// 当发现Cache中的一个元素获取或丢失其唯一的外部引用(external reference)时，通过Ref()
+// 和Unref()方法将元素在这两个链表之间移动，
 
 // An entry is a variable length heap-allocated structure.  Entries
 // are kept in a circular doubly linked list ordered by access time.
+// 条目是一个变长的堆中申请的结构。
+// 条目保存在按访问时间排序的循环双向链表
 struct LRUHandle {
   void* value;
   void (*deleter)(const Slice&, void* value);
+  // 仅用于哈希表
   LRUHandle* next_hash;
   LRUHandle* next;
   LRUHandle* prev;
@@ -50,12 +66,16 @@ struct LRUHandle {
   size_t key_length;
   bool in_cache;     // Whether entry is in the cache.
   uint32_t refs;     // References, including cache reference, if present.
-  uint32_t hash;     // Hash of key(); used for fast sharding and comparisons
+  // Hash of key(); used for fast sharding and comparisons
+  // key()的哈希值，用于快速分片和比较
+  uint32_t hash;
   char key_data[1];  // Beginning of key
 
   Slice key() const {
     // next_ is only equal to this if the LRU handle is the list head of an
     // empty list. List heads never have meaningful keys.
+    // 如果该LRU句柄是空链表的表头，next_只能等于this。
+    // 表头永远没有有意义的key。
     assert(next != this);
 
     return Slice(key_data, key_length);
@@ -67,25 +87,38 @@ struct LRUHandle {
 // table implementations in some of the compiler/runtime combinations
 // we have tested.  E.g., readrandom speeds up by ~5% over the g++
 // 4.4.3's builtin hashtable.
+// 我们提供自己的简单哈希表，因为它移除了一大堆的移植技巧，并且也比我们测试
+// 过的一些编译/运行组合中的内建哈希表实现更快。例如，随机读的速度比g++4.4.3
+// 内建哈希表快约5%。
 class HandleTable {
  public:
   HandleTable() : length_(0), elems_(0), list_(nullptr) { Resize(); }
+  // 析构函数只负责释放list_中指向每个bucket表头元素的指针，
+  // 不负责释放bucket中的内容（堆中申请的所有元素）
   ~HandleTable() { delete[] list_; }
 
+  // 返回指向hash对应bucket中与key一致的slot的指针。
+  // 如果没有该Cache条目，返回指向hash对应的bucket中末尾slot的指针。
+  // 【说明】返回“指针的指针”，就可以通过修改返回值来向bucket末尾追加新元素了。
   LRUHandle* Lookup(const Slice& key, uint32_t hash) {
     return *FindPointer(key, hash);
   }
 
+  // 向哈希表中插入条目h。
+  // 如果哈希表中已有h对应的条目，则用h替换，并返回指向被替换的条目的指针；
+  // 否则，在对应bucket末尾插入条目h，并维护元素计数，最后返回nullptr。
   LRUHandle* Insert(LRUHandle* h) {
     LRUHandle** ptr = FindPointer(h->key(), h->hash);
     LRUHandle* old = *ptr;
     h->next_hash = (old == nullptr ? nullptr : old->next_hash);
     *ptr = h;
     if (old == nullptr) {
+      // 说明哈希表中原本没有条目h
       ++elems_;
       if (elems_ > length_) {
         // Since each cache entry is fairly large, we aim for a small
         // average linked list length (<= 1).
+        // 由于每个Cache条目都很大，我们的目标是让链表（bucket）平均长度较小（<=1）。
         Resize();
       }
     }
@@ -105,35 +138,54 @@ class HandleTable {
  private:
   // The table consists of an array of buckets where each bucket is
   // a linked list of cache entries that hash into the bucket.
+  // 该哈希表由一个bucket数组构成，其中每个bucket（桶）是一个Cache条目
+  // 的链表。
+  // length_是bucket数组的长度
   uint32_t length_;
+  // elems_是哈希表中元素的数量
   uint32_t elems_;
+  // list_是bucket的数组
   LRUHandle** list_;
 
   // Return a pointer to slot that points to a cache entry that
   // matches key/hash.  If there is no such cache entry, return a
   // pointer to the trailing slot in the corresponding linked list.
+  // 返回指向hash对应bucket中与key一致的slot的指针。
+  // 如果没有该Cache条目，返回指向hash对应的bucket中末尾slot的指针。
+  // 【说明】返回“指针的指针”，就可以通过修改返回值来向bucket末尾追加新元素了。
   LRUHandle** FindPointer(const Slice& key, uint32_t hash) {
     LRUHandle** ptr = &list_[hash & (length_ - 1)];
+    // 【说明】先比较hash，因为比较hash比比较Slice要高效的多
     while (*ptr != nullptr && ((*ptr)->hash != hash || key != (*ptr)->key())) {
+      // 哈希值不同，或者key不同，查看bucket中的下一个slot
       ptr = &(*ptr)->next_hash;
     }
     return ptr;
   }
 
+  // 尝试扩大bucket数组长度（确保是2的整数幂），确保length_不小于哈希表中元素数量
+  // 扩大长度之后，list_中每个bucket中所有元素需要重新分配到新的对应的bucket中。
   void Resize() {
+    // 新长度最小为4
     uint32_t new_length = 4;
+    // 新长度翻倍，直到不小于当前哈希表中的元素数量
     while (new_length < elems_) {
       new_length *= 2;
     }
+    // 从堆中分配 新的bucket数组
     LRUHandle** new_list = new LRUHandle*[new_length];
     memset(new_list, 0, sizeof(new_list[0]) * new_length);
     uint32_t count = 0;
     for (uint32_t i = 0; i < length_; i++) {
       LRUHandle* h = list_[i];
+      // 遍历list_中第i个bucket中所有slot对应的元素，逐个将元素分配到扩大后的new_list中
+      // 正确的bucket中。
       while (h != nullptr) {
         LRUHandle* next = h->next_hash;
         uint32_t hash = h->hash;
+        // 根据bucket中遍历的当前元素的哈希值重新分配对应的bucket。
         LRUHandle** ptr = &new_list[hash & (new_length - 1)];
+        // 在new_list中对应的bucket中，采用头插法。
         h->next_hash = *ptr;
         *ptr = h;
         h = next;

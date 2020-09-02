@@ -43,6 +43,8 @@ class TableCache {
   // call (*handle_result)(arg, found_key, found_value).
   // 在指定文件中搜索内部key “k”，如果找到了，则调用
   // handle_result(arg, 找到的key, 找到的value)
+  // 【实现】在cache_中找到file_number对应的映射，并得到对应的Table。
+  //     在Table中找到这个k，执行(*handle_result)(arg, k, v)
   Status Get(const ReadOptions& options, uint64_t file_number,
              uint64_t file_size, const Slice& k, void* arg,
              void (*handle_result)(void*, const Slice&, const Slice&));

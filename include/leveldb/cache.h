@@ -14,8 +14,9 @@
 // policy is provided.  Clients may use their own implementations if
 // they want something more sophisticated (like scan-resistance, a
 // custom eviction policy, variable cache sizing, etc.)
+//
 // Cache是将key映射到value的接口。它有内部同步，可以安全的从多个线程并发访问。
-// 它能自动淘汰条目，为新条目腾出空间。value对Cache容量有指定的收费。例如，一个
+// 它能自动淘汰条目，为新条目腾出空间。value对Cache容量有指定的费用。例如，一个
 // Cache，其中的value是变长字符串，可以使用字符串长度作为字符串的费用。
 // 提供了有LRU淘汰策略的内建Cache实现。如果client想要更复杂的实现（比如抗扫描、定
 // 制淘汰策略、可变Cache大小等），他们可以使用自己的实现。
@@ -33,7 +34,7 @@ class LEVELDB_EXPORT Cache;
 
 // Create a new cache with a fixed size capacity.  This implementation
 // of Cache uses a least-recently-used eviction policy.
-// 以固定大小的容量创建一个Cache。
+// 以固定大小的容量创建一个Cache（ShardedLRUCache类型）。
 // 该Cache的实现使用 LRU 的淘汰策略。
 LEVELDB_EXPORT Cache* NewLRUCache(size_t capacity);
 
@@ -126,6 +127,9 @@ class LEVELDB_EXPORT Cache {
   virtual size_t TotalCharge() const = 0;
 
  private:
+  // 这三个私有的成员函数都是只有声明，没有定义。
+  // 由于该接口的所有共有成员函数要么是纯虚，要么是空函数，都没有用到这三个私有函数，因此，
+  // 没有必要实现。在这里声明也只是为了说明派生类中可以定义并使用这三个成员函数。
   void LRU_Remove(Handle* e);
   void LRU_Append(Handle* e);
   void Unref(Handle* e);
