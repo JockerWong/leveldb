@@ -148,6 +148,7 @@ class HandleTable {
 };
 
 // A single shard of sharded cache.
+// 分片Cache的单个分片
 class LRUCache {
  public:
   LRUCache();
@@ -336,7 +337,7 @@ void LRUCache::Prune() {
 static const int kNumShardBits = 4;
 static const int kNumShards = 1 << kNumShardBits;
 
-// 标准的最近最少被使用 Cache
+// 分片的最近最少被使用 Cache
 class ShardedLRUCache : public Cache {
  private:
   LRUCache shard_[kNumShards];

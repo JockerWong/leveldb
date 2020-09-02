@@ -17,8 +17,8 @@
 // Cache是将key映射到value的接口。它有内部同步，可以安全的从多个线程并发访问。
 // 它能自动淘汰条目，为新条目腾出空间。value对Cache容量有指定的收费。例如，一个
 // Cache，其中的value是变长字符串，可以使用字符串长度作为字符串的费用。
-// 提供了有LRU淘汰策略的内建Cache实现。如果他们想要更复杂的实现（比如抗扫描、定
-// 制淘汰策略、可变Cache大小等），客户端可以使用自己的实现。
+// 提供了有LRU淘汰策略的内建Cache实现。如果client想要更复杂的实现（比如抗扫描、定
+// 制淘汰策略、可变Cache大小等），他们可以使用自己的实现。
 #ifndef STORAGE_LEVELDB_INCLUDE_CACHE_H_
 #define STORAGE_LEVELDB_INCLUDE_CACHE_H_
 
