@@ -125,10 +125,12 @@ class HandleTable {
     return old;
   }
 
+  // 从hash对应的bucket中删除与key匹配的元素，并返回指向该元素的指针。
   LRUHandle* Remove(const Slice& key, uint32_t hash) {
     LRUHandle** ptr = FindPointer(key, hash);
     LRUHandle* result = *ptr;
     if (result != nullptr) {
+      // 说明有匹配的元素，将其从所在Bucket中删除
       *ptr = result->next_hash;
       --elems_;
     }
@@ -207,6 +209,7 @@ class LRUCache {
   ~LRUCache();
 
   // Separate from constructor so caller can easily make an array of LRUCache
+  // 从构造函数中分离出来，这样调用者就可以很容易地创建LRUCache数组了。
   void SetCapacity(size_t capacity) { capacity_ = capacity; }
 
   // Like Cache methods, but with an extra "hash" parameter.
@@ -234,20 +237,28 @@ class LRUCache {
 
   // mutex_ protects the following state.
   mutable port::Mutex mutex_;
+  // 受mutex_保护
   size_t usage_ GUARDED_BY(mutex_);
 
   // Dummy head of LRU list.
   // lru.prev is newest entry, lru.next is oldest entry.
   // Entries have refs==1 and in_cache==true.
+  // LRU链表的表头。
+  // lru_.prev 指向最新条目，lru_.next指向最旧的条目。
+  // LRU链表中的条目，refs==1，in_cache==true。
   LRUHandle lru_ GUARDED_BY(mutex_);
 
   // Dummy head of in-use list.
   // Entries are in use by clients, and have refs >= 2 and in_cache==true.
+  // in-use链表的表头。
+  // in-use链表中的条目，正在被client使用，refs>=2，in_cache==true。
   LRUHandle in_use_ GUARDED_BY(mutex_);
 
+  // 哈希表
   HandleTable table_ GUARDED_BY(mutex_);
 };
 
+// 初始 lru_ 和 in_use_ 都是空的循环链表。
 LRUCache::LRUCache() : capacity_(0), usage_(0) {
   // Make empty circular linked lists.
   lru_.next = &lru_;
