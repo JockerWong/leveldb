@@ -56,7 +56,7 @@ namespace {
 // 条目是一个变长的堆中申请的结构。
 // 条目保存在按访问时间排序的循环双向链表
 struct LRUHandle {
-  void* value;
+  void* value;  // 真是数据存储在外部，并非构造handle是分配的空间
   void (*deleter)(const Slice&, void* value);
   // 仅用于哈希表
   LRUHandle* next_hash;
@@ -69,7 +69,10 @@ struct LRUHandle {
   // Hash of key(); used for fast sharding and comparisons
   // key()的哈希值，用于快速分片和比较
   uint32_t hash;
-  char key_data[1];  // Beginning of key
+  // Beginning of key
+  // 用于占位的一个字节。
+  // 与value对比，key_data在构造handle时分配了空间。
+  char key_data[1];
 
   Slice key() const {
     // next_ is only equal to this if the LRU handle is the list head of an
@@ -126,6 +129,7 @@ class HandleTable {
   }
 
   // 从hash对应的bucket中删除与key匹配的元素，并返回指向该元素的指针。
+  // 如果哈希表中没有匹配的元素，则返回nullptr。
   LRUHandle* Remove(const Slice& key, uint32_t hash) {
     LRUHandle** ptr = FindPointer(key, hash);
     LRUHandle* result = *ptr;
@@ -220,6 +224,7 @@ class LRUCache {
   void Release(Cache::Handle* handle);
   void Erase(const Slice& key, uint32_t hash);
   void Prune();
+  // 存储的所有handle的总charge
   size_t TotalCharge() const {
     MutexLock l(&mutex_);
     return usage_;
@@ -233,11 +238,13 @@ class LRUCache {
   bool FinishErase(LRUHandle* e) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   // Initialized before use.
+  // 容量，能容纳的handle->charge总和
   size_t capacity_;
 
   // mutex_ protects the following state.
   mutable port::Mutex mutex_;
   // 受mutex_保护
+  // 使用率，当前存储的所有handle的charge总和
   size_t usage_ GUARDED_BY(mutex_);
 
   // Dummy head of LRU list.
@@ -258,7 +265,7 @@ class LRUCache {
   HandleTable table_ GUARDED_BY(mutex_);
 };
 
-// 初始 lru_ 和 in_use_ 都是空的循环链表。
+// 初始 lru_ 和 in_use_ 都是空的循环链表，哈希表也为空表。
 LRUCache::LRUCache() : capacity_(0), usage_(0) {
   // Make empty circular linked lists.
   lru_.next = &lru_;
@@ -267,45 +274,66 @@ LRUCache::LRUCache() : capacity_(0), usage_(0) {
   in_use_.prev = &in_use_;
 }
 
+// 将lru_中所有handle释放
 LRUCache::~LRUCache() {
+  // 如果调用者有未释放的handle，则有问题。
   assert(in_use_.next == &in_use_);  // Error if caller has an unreleased handle
   for (LRUHandle* e = lru_.next; e != &lru_;) {
     LRUHandle* next = e->next;
     assert(e->in_cache);
     e->in_cache = false;
+    // lru_链表中的不变式
     assert(e->refs == 1);  // Invariant of lru_ list.
     Unref(e);
     e = next;
   }
 }
 
+// 为e增加一个引用计数。增加之前，
+// 如果引用计数为1，说明本次肯定是有client要使用该handle，因此，将其转移到in_use_
+// 链表中。
+// 【注意】in_use_ 受 mutex_ 保护，上层需要获取锁
 void LRUCache::Ref(LRUHandle* e) {
   if (e->refs == 1 && e->in_cache) {  // If on lru_ list, move to in_use_ list.
+    // 说明有client要使用e
+    // 将e从当前所在链表中删除，追加到in_use_链表中
     LRU_Remove(e);
     LRU_Append(&in_use_, e);
   }
   e->refs++;
 }
 
+// 为e减少一个引用计数。减少后，
+// 如果引用计数为0，必然非in_cache，说明是lru_链表中的handle释放引用计数，导致其
+//   被淘汰，用其key和value调用其deleter函数指针，并释放handle申请的内存空间。
+// 如果引用计数为1且in_cache，说明不再有client使用，将其转移到lru_链表，等待淘汰。
+// 如果引用计数为1且非in_cache，既然已经不在Cache中，不需要执行其他操作，就等待下
+//   一次Unref()释放资源。
+// 如果引用计数大于1，引用计数还很多，不需要执行其他操作。
+// 【注意】lru_ 受 mutex_ 保护，上层需要获取锁
 void LRUCache::Unref(LRUHandle* e) {
   assert(e->refs > 0);
   e->refs--;
   if (e->refs == 0) {  // Deallocate.
     assert(!e->in_cache);
+    // 以handle中的key和value调用其deleter函数指针。
     (*e->deleter)(e->key(), e->value);
     free(e);
   } else if (e->in_cache && e->refs == 1) {
     // No longer in use; move to lru_ list.
+    // 将e从当前所在链表中删除，追加到lru_链表中
     LRU_Remove(e);
     LRU_Append(&lru_, e);
   }
 }
 
+// 将handle从当前所在的链表中删除。
 void LRUCache::LRU_Remove(LRUHandle* e) {
   e->next->prev = e->prev;
   e->prev->next = e->next;
 }
 
+// 将handle e 追加到双向链表 list 末尾。
 void LRUCache::LRU_Append(LRUHandle* list, LRUHandle* e) {
   // Make "e" newest entry by inserting just before *list
   e->next = list;
@@ -314,27 +342,39 @@ void LRUCache::LRU_Append(LRUHandle* list, LRUHandle* e) {
   e->next->prev = e;
 }
 
+// 通过哈希表查找匹配 key/hash 的handle。
+// 如果LRUCache中有，返回指向handle的指针，并增加其引用计数，必然转到in_use_链表中；
+// 如果LRUCache中没有，返回nullptr。
 Cache::Handle* LRUCache::Lookup(const Slice& key, uint32_t hash) {
   MutexLock l(&mutex_);
   LRUHandle* e = table_.Lookup(key, hash);
   if (e != nullptr) {
+    // 有这个handle，引用计数+1
     Ref(e);
   }
+  // 强转为Cache::Handle指针，为通用接口使用
   return reinterpret_cast<Cache::Handle*>(e);
 }
 
+// 减少handle的引用计数
 void LRUCache::Release(Cache::Handle* handle) {
   MutexLock l(&mutex_);
   Unref(reinterpret_cast<LRUHandle*>(handle));
 }
 
+// 向LRUCache中插入handle。
+// 支持没有容量（不在LRUCache中缓存）的情况。
+// 如果LRUCache中容量满了，按照LRU策略，优先删除lru_链表中旧的handle。
+// 返回指向新插入的handle的指针。
 Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
                                 size_t charge,
                                 void (*deleter)(const Slice& key,
                                                 void* value)) {
   MutexLock l(&mutex_);
 
+  // 为 e 在堆中申请一段内存
   LRUHandle* e =
+      // LRUHandle结构定义中，只有用于占位的key的第一个字节
       reinterpret_cast<LRUHandle*>(malloc(sizeof(LRUHandle) - 1 + key.size()));
   e->value = value;
   e->deleter = deleter;
@@ -346,18 +386,27 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
   std::memcpy(e->key_data, key.data(), key.size());
 
   if (capacity_ > 0) {
+    // LRUCache有容量，增加引用计数，设置in_cache，并追加到in_use_链表中。
     e->refs++;  // for the cache's reference.
     e->in_cache = true;
     LRU_Append(&in_use_, e);
     usage_ += charge;
+    // 向哈希表中插入e，如果哈希表中已存在key/hash匹配的handle，则用e替换，并通过FinishErase()
+    // 从LRUCache中删除被替换的handle
     FinishErase(table_.Insert(e));
   } else {  // don't cache. (capacity_==0 is supported and turns off caching.)
     // next is read by key() in an assert, so it must be initialized
+    // 不缓存。（支持容量为0，这样会关闭缓存。）
+    // next在key()中被assert调用读取，所以必须初始化，以说明它不是空表的表头
+    // 这种情况，在调用者使用完e之后，调用LRUCache::Release()释放e，依然会释放其资源。
     e->next = nullptr;
   }
+  // 如果存储的handle总charge超过容量，且lru_链表中有handle，则从旧到新删除lru_链表中的handle，
+  // 直到从charge在容量范围内。
   while (usage_ > capacity_ && lru_.next != &lru_) {
     LRUHandle* old = lru_.next;
     assert(old->refs == 1);
+    // 先从哈希表删除，在从LRUCache中完成删除操作。
     bool erased = FinishErase(table_.Remove(old->key(), old->hash));
     if (!erased) {  // to avoid unused variable when compiled NDEBUG
       assert(erased);
@@ -369,10 +418,13 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
 
 // If e != nullptr, finish removing *e from the cache; it has already been
 // removed from the hash table.  Return whether e != nullptr.
+// 如果 e 不为 nullptr，完成将 *e 从LRUCache中移除；它已经从哈希表中移除。
+// 返回是否真正的删除了一个handle（而非因为e为nullptr，未执行删除）。
 bool LRUCache::FinishErase(LRUHandle* e) {
   if (e != nullptr) {
     assert(e->in_cache);
     LRU_Remove(e);
+    // 标记为不在Cache中，引用基数为0时可以释放资源
     e->in_cache = false;
     usage_ -= e->charge;
     Unref(e);
@@ -380,11 +432,17 @@ bool LRUCache::FinishErase(LRUHandle* e) {
   return e != nullptr;
 }
 
+// 从LRUCache中删除key/hash匹配的元素。
 void LRUCache::Erase(const Slice& key, uint32_t hash) {
   MutexLock l(&mutex_);
+  // 先从哈希表中删除，删除的过程中，通过哈希快速的找到了匹配元素，再将元素从
+  // 所在链表中删除，并释放引用计数。
+  // 先执行哈希表的操作，效率更高。
   FinishErase(table_.Remove(key, hash));
 }
 
+// 修剪操作：
+// 将lru_链表中所有元素，从LRUCache中删除，并释放资源
 void LRUCache::Prune() {
   MutexLock l(&mutex_);
   while (lru_.next != &lru_) {
@@ -400,17 +458,19 @@ void LRUCache::Prune() {
 static const int kNumShardBits = 4;
 static const int kNumShards = 1 << kNumShardBits;
 
-// 分片的最近最少被使用 Cache
+// 分片的 LRUCache
 class ShardedLRUCache : public Cache {
  private:
   LRUCache shard_[kNumShards];
   port::Mutex id_mutex_;
   uint64_t last_id_;
 
+  // 计算Slice的哈希值
   static inline uint32_t HashSlice(const Slice& s) {
     return Hash(s.data(), s.size(), 0);
   }
 
+  // 根据hash值计算分片，hash值的最高kNumShardBits位，作为对应的分片
   static uint32_t Shard(uint32_t hash) { return hash >> (32 - kNumShardBits); }
 
  public:

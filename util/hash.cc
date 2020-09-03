@@ -11,6 +11,9 @@
 // The FALLTHROUGH_INTENDED macro can be used to annotate implicit fall-through
 // between switch labels. The real definition should be provided externally.
 // This one is a fallback version for unsupported compilers.
+// FALLTHROUGH_INTENDED 宏可用于为在switch标签(case)之间落空(fall-through，未调用
+// break)作注释。真正的定义应该在外部提供。这是不支持的编译器的后背版本。
+// FALLTHROUGH_INTENDED 其实什么都不做
 #ifndef FALLTHROUGH_INTENDED
 #define FALLTHROUGH_INTENDED \
   do {                       \
@@ -19,6 +22,7 @@
 
 namespace leveldb {
 
+// 以种子seed，计算长度为n的data的 哈希值
 uint32_t Hash(const char* data, size_t n, uint32_t seed) {
   // Similar to murmur hash
   const uint32_t m = 0xc6a4a793;
