@@ -21,6 +21,7 @@ void BlockHandle::EncodeTo(std::string* dst) const {
   PutVarint64(dst, size_);
 }
 
+// 从input中取出变长64位的offset_和size_
 Status BlockHandle::DecodeFrom(Slice* input) {
   if (GetVarint64(input, &offset_) && GetVarint64(input, &size_)) {
     return Status::OK();
@@ -43,7 +44,10 @@ void Footer::EncodeTo(std::string* dst) const {
   (void)original_size;  // Disable unused variable warning.
 }
 
+// 从input中取出 metaindex block 和 index block 的句柄，以及一个魔法数字
+// 并将这段数据从Slice的范围内丢掉。
 Status Footer::DecodeFrom(Slice* input) {
+  // 魔法数字，先低32位，后高32位。
   const char* magic_ptr = input->data() + kEncodedLength - 8;
   const uint32_t magic_lo = DecodeFixed32(magic_ptr);
   const uint32_t magic_hi = DecodeFixed32(magic_ptr + 4);
@@ -59,6 +63,7 @@ Status Footer::DecodeFrom(Slice* input) {
   }
   if (result.ok()) {
     // We skip over any leftover data (just padding for now) in "input"
+    // 跳过“input”中剩余数据（现在只是两个BlockHandle的padding）。
     const char* end = magic_ptr + 8;
     *input = Slice(end, input->data() + input->size() - end);
   }

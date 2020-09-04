@@ -42,12 +42,14 @@ Status Table::Open(const Options& options, RandomAccessFile* file,
     return Status::Corruption("file is too short to be an sstable");
   }
 
+  // 从文件中读取footer数据（最后48字节）
   char footer_space[Footer::kEncodedLength];
   Slice footer_input;
   Status s = file->Read(size - Footer::kEncodedLength, Footer::kEncodedLength,
                         &footer_input, footer_space);
   if (!s.ok()) return s;
 
+  // 从footer_input中解析Footer结构
   Footer footer;
   s = footer.DecodeFrom(&footer_input);
   if (!s.ok()) return s;

@@ -92,6 +92,8 @@ struct BlockContents {
 
 // Read the block identified by "handle" from "file".  On failure
 // return non-OK.  On success fill *result and return OK.
+// 从“file”中读取“handle”标识的block。如果失败，则返回非OK。如果成功，则填充
+// *result 并返回OK。
 Status ReadBlock(RandomAccessFile* file, const ReadOptions& options,
                  const BlockHandle& handle, BlockContents* result);
 

@@ -60,6 +60,9 @@ struct LEVELDB_EXPORT Options {
   // errors.  This may have unforeseen ramifications: for example, a
   // corruption of one DB entry may cause a large number of entries to
   // become unreadable or for the entire DB to become unopenable.
+  // 如果为true，实现会主动检查其处理的数据，并且如果遇到任何错误会提前停
+  // 止。这可能会产生不可预见的结果：例如，一个DB条目的损坏可能导致大量条
+  // 目变得不可读或导致整个DB变得不能打开。
   bool paranoid_checks = false;
 
   // Use the specified object to interact with the environment,
@@ -171,6 +174,7 @@ struct LEVELDB_EXPORT ReadOptions {
 
   // If true, all data read from underlying storage will be
   // verified against corresponding checksums.
+  // 如果是true，所有从底层存储读取的数据将根据响应的校验和进行校验。
   bool verify_checksums = false;
 
   // Should the data read for this iteration be cached in memory?
