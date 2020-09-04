@@ -12,8 +12,8 @@
 namespace leveldb {
 
 struct TableAndFile {
-  RandomAccessFile* file;
-  Table* table;
+  RandomAccessFile* file;   // 用于随机读取文件内容
+  Table* table;             // 文件中读取出的Table
 };
 
 // 用于删除TableCache::cache_内的条目
@@ -35,7 +35,8 @@ static void UnrefEntry(void* arg1, void* arg2) {
 
 // param[in] dbname : 数据库名
 // param[in] options : 选项
-// param[in] entries : 内部cache_的容量
+// param[in] entries : 内部cache_的容量，【注意】这个并不是条目的数量，在ShardedLRUCache
+//                     中，实际上是所有分片的charge容量总和。
 TableCache::TableCache(const std::string& dbname, const Options& options,
                        int entries)
     : env_(options.env),

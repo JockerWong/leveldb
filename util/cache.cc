@@ -54,7 +54,7 @@ namespace {
 // An entry is a variable length heap-allocated structure.  Entries
 // are kept in a circular doubly linked list ordered by access time.
 // 条目是一个变长的堆中申请的结构。
-// 条目保存在按访问时间排序的循环双向链表
+// 条目保存在按访问时间排序的循环双向链表（通过尾插）
 struct LRUHandle {
   void* value;  // 真是数据存储在外部，并非构造handle是分配的空间
   void (*deleter)(const Slice&, void* value);
@@ -150,7 +150,7 @@ class HandleTable {
   uint32_t length_;
   // elems_是哈希表中元素的数量
   uint32_t elems_;
-  // list_是bucket的数组
+  // list_是bucket（next_hash构成链表的表头指针）的数组
   LRUHandle** list_;
 
   // Return a pointer to slot that points to a cache entry that
@@ -251,7 +251,7 @@ class LRUCache {
   // lru.prev is newest entry, lru.next is oldest entry.
   // Entries have refs==1 and in_cache==true.
   // LRU链表的表头。
-  // lru_.prev 指向最新条目，lru_.next指向最旧的条目。
+  // lru_.prev 指向最新条目，lru_.next指向最旧的条目。【说明】因为是尾插。
   // LRU链表中的条目，refs==1，in_cache==true。
   LRUHandle lru_ GUARDED_BY(mutex_);
 
@@ -461,6 +461,7 @@ static const int kNumShards = 1 << kNumShardBits;
 // 分片的 LRUCache
 class ShardedLRUCache : public Cache {
  private:
+  // 每个handle根据其key的哈希值来决定，分配到哪个分片
   LRUCache shard_[kNumShards];
   port::Mutex id_mutex_;
   uint64_t last_id_;
@@ -475,6 +476,7 @@ class ShardedLRUCache : public Cache {
 
  public:
   explicit ShardedLRUCache(size_t capacity) : last_id_(0) {
+    // 设置每个切片的容量（向上取整）
     const size_t per_shard = (capacity + (kNumShards - 1)) / kNumShards;
     for (int s = 0; s < kNumShards; s++) {
       shard_[s].SetCapacity(per_shard);
@@ -505,6 +507,8 @@ class ShardedLRUCache : public Cache {
     MutexLock l(&id_mutex_);
     return ++(last_id_);
   }
+  // 修剪：删除所有未被活跃使用的Cache条目。内存受限的应用程序可能希望调用这个方法来减少
+  // 内存使用量。
   void Prune() override {
     for (int s = 0; s < kNumShards; s++) {
       shard_[s].Prune();

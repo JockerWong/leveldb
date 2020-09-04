@@ -45,7 +45,7 @@ class LEVELDB_EXPORT Table {
   // 如果成功，返回ok并设置*table为新打开的Table。不再使用时，client应该删除
   // *table。
   // 如果初始化Table时发生错误，设置*table为nullptr并返回一个非ok状态。
-  // 不获取*source的所有权，但客户端应该确保在返回的talble的生命期内，source
+  // 不获取*source的所有权，但客户端应该确保在返回的talble的生命期内，source ???
   // 保持活动状态。
   static Status Open(const Options& options, RandomAccessFile* file,
                      uint64_t file_size, Table** table);
