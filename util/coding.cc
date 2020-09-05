@@ -164,7 +164,8 @@ const char* GetLengthPrefixedSlice(const char* p, const char* limit,
   return p + len;
 }
 
-// 从input中读取带长度的数据，将数据维护到result中，并从input中丢弃
+// 从input中读取带长度前缀的数据，到result中；将input向前推进至越过
+// result，返回true。如果遇到错误，返回false。
 bool GetLengthPrefixedSlice(Slice* input, Slice* result) {
   uint32_t len;
   if (GetVarint32(input, &len) && input->size() >= len) {

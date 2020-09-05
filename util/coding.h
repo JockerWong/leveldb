@@ -28,6 +28,8 @@ void PutLengthPrefixedSlice(std::string* dst, const Slice& value);
 
 // Standard Get... routines parse a value from the beginning of a Slice
 // and advance the slice past the parsed value.
+// 标准Get...例程，从Slice的开头解析出一个value，并将Slice向前推进，越过已解析
+// 的value。
 bool GetVarint32(Slice* input, uint32_t* value);
 bool GetVarint64(Slice* input, uint64_t* value);
 bool GetLengthPrefixedSlice(Slice* input, Slice* result);
@@ -36,6 +38,9 @@ bool GetLengthPrefixedSlice(Slice* input, Slice* result);
 // in *v and return a pointer just past the parsed value, or return
 // nullptr on error.  These routines only look at bytes in the range
 // [p..limit-1]
+// GetVarint... 基于指针的变种，它们要么在*v存储一个value并返回指向（数据p）
+// 解析后的指针，要么在遇到错误时返回nullptr。
+// 这些例程只访问[p..limit)范围内的字节。
 const char* GetVarint32Ptr(const char* p, const char* limit, uint32_t* v);
 const char* GetVarint64Ptr(const char* p, const char* limit, uint64_t* v);
 

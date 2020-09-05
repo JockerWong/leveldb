@@ -33,10 +33,13 @@ class Block {
 
   uint32_t NumRestarts() const;
 
-  // 内容与BlockBuilder::buffer_对应
+  // 内容与BlockBuilder::buffer_对应，包括kv对，所有restart点偏移量，restart点数量
   const char* data_;
+  // 内容的长度，包括kv对，所有restart点偏移量，restart点数量
   size_t size_;
-  uint32_t restart_offset_;  // Offset in data_ of restart array
+  // Offset in data_ of restart array
+  // data_中restart点数组开始的偏移量
+  uint32_t restart_offset_;
   // Block owns data_[]
   // Block 是否拥有 data_[]的所有权，比如PosixMmapReadableFile，它有文件的一段内存映射，
   // 在没有压缩的情况下，可以直接使用其中的数据，不需要Block自身在持有一份

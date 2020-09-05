@@ -17,6 +17,7 @@
 
 namespace leveldb {
 
+// data_中末尾的32位定长的restart点数量
 inline uint32_t Block::NumRestarts() const {
   assert(size_ >= sizeof(uint32_t));
   return DecodeFixed32(data_ + size_ - sizeof(uint32_t));
@@ -26,9 +27,11 @@ Block::Block(const BlockContents& contents)
     : data_(contents.data.data()),
       size_(contents.data.size()),
       owned_(contents.heap_allocated) {
+  // data_中至少要有一个32位定长的restart点的数量
   if (size_ < sizeof(uint32_t)) {
     size_ = 0;  // Error marker
   } else {
+    // 除去最后一个32位之后，data_剩余数据能允许的“最大restart点数量”
     size_t max_restarts_allowed = (size_ - sizeof(uint32_t)) / sizeof(uint32_t);
     if (NumRestarts() > max_restarts_allowed) {
       // The size is too small for NumRestarts()
@@ -52,6 +55,14 @@ Block::~Block() {
 //
 // If any errors are detected, returns nullptr.  Otherwise, returns a
 // pointer to the key delta (just past the three decoded values).
+//
+// 帮助例程：解码从“p”开始的下一个block条目，将共享key字节数，非共享key字节数，和
+// value的长度分别存储到“*shared”，“*non_shared”，和“*value_length”。不会解引用
+// 超过“limit”。
+// 如果遇到任何错误，返回nullptr。否则，返回指向key delta（key不同的地方，也就是刚
+// 刚越过三个解码数值的地方）的指针。
+// 【说明】shared，non_shared这个概念，对应BlockBuilder::Add()，是对相邻key值的一
+//     种压缩手段。
 static inline const char* DecodeEntry(const char* p, const char* limit,
                                       uint32_t* shared, uint32_t* non_shared,
                                       uint32_t* value_length) {
@@ -61,13 +72,17 @@ static inline const char* DecodeEntry(const char* p, const char* limit,
   *value_length = reinterpret_cast<const uint8_t*>(p)[2];
   if ((*shared | *non_shared | *value_length) < 128) {
     // Fast path: all three values are encoded in one byte each
+    // 三者的最高位都为0，说明都可以编码到一个字节内
+    // 【说明】这也应该是大多数情况
     p += 3;
   } else {
+    // 某个字段一字节存不下，则全部执行取出变长32位的操作
     if ((p = GetVarint32Ptr(p, limit, shared)) == nullptr) return nullptr;
     if ((p = GetVarint32Ptr(p, limit, non_shared)) == nullptr) return nullptr;
     if ((p = GetVarint32Ptr(p, limit, value_length)) == nullptr) return nullptr;
   }
 
+  // 剩余数据长度是否还足够 key的non_shared部分，和value内容
   if (static_cast<uint32_t>(limit - p) < (*non_shared + *value_length)) {
     return nullptr;
   }
