@@ -37,6 +37,7 @@ inline uint32_t Mask(uint32_t crc) {
 }
 
 // Return the crc whose masked representation is masked_crc.
+// 返回掩码表现形式为masked_crc的crc。
 inline uint32_t Unmask(uint32_t masked_crc) {
   uint32_t rot = masked_crc - kMaskDelta;
   return ((rot >> 17) | (rot << 15));

@@ -85,9 +85,19 @@ static const uint64_t kTableMagicNumber = 0xdb4775248b80fb57ull;
 static const size_t kBlockTrailerSize = 5;
 
 struct BlockContents {
-  Slice data;           // Actual contents of data
-  bool cachable;        // True iff data can be cached
-  bool heap_allocated;  // True iff caller should delete[] data.data()
+  // Actual contents of data
+  // 解压缩后（如果需要）的，不包含type和crc的，真实数据内容
+  Slice data;
+  // True iff data can be cached
+  // 比如PosixMmapReadableFile，它有文件的一段内存映射，所以，如果是未经压缩
+  // 的话，就可以直接使用这段内存中的数据，因此也就不需要在Cache中缓存。
+  bool cachable;
+  // True iff caller should delete[] data.data()
+  // 如果在RandomAccessFile::Read()中，没有将内容读取到调用者传递的堆中申请
+  // 的一段内存中，就说明没有使用调用者申请的堆中内存，因此设置为false；
+  // 反之，如果读取到调用者传递的堆中申请的一段内存中，说明这段内存在不需要使
+  // 用时，需要调用者通过delete[]来释放，因此设置为true。
+  bool heap_allocated;
 };
 
 // Read the block identified by "handle" from "file".  On failure

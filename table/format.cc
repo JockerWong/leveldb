@@ -78,6 +78,8 @@ Status ReadBlock(RandomAccessFile* file, const ReadOptions& options,
 
   // Read the block contents as well as the type/crc footer.
   // See table_builder.cc for the code that built this structure.
+  // 读取block内容和type/crc
+  //（与 TableBuilder::WriteBlock() 和 TableBuilder::WriteRawBlock() 对应）。
   size_t n = static_cast<size_t>(handle.size());
   char* buf = new char[n + kBlockTrailerSize];
   Slice contents;
@@ -95,6 +97,7 @@ Status ReadBlock(RandomAccessFile* file, const ReadOptions& options,
   const char* data = contents.data();  // Pointer to where Read put the data
   if (options.verify_checksums) {
     const uint32_t crc = crc32c::Unmask(DecodeFixed32(data + n + 1));
+    // 根据block内容和type计算真实的crc。
     const uint32_t actual = crc32c::Value(data, n + 1);
     if (actual != crc) {
       delete[] buf;
@@ -109,11 +112,17 @@ Status ReadBlock(RandomAccessFile* file, const ReadOptions& options,
         // File implementation gave us pointer to some other data.
         // Use it directly under the assumption that it will be live
         // while the file is open.
+        // 文件（读取文件的接口）实现给我们一个指向其他数据的指针。
+        // 直接使用这个指针，假设在文件打开期间它一直存活。
+        // 比如PosixMmapReadableFile，它使用文件的一段内存映射，因此也不需要再重复
+        // 地缓存这段数据了。
         delete[] buf;
         result->data = Slice(data, n);
         result->heap_allocated = false;
+        // 这段数据本来就在内存中，不需要再重复缓存
         result->cachable = false;  // Do not double-cache
       } else {
+        // 使用了堆中申请的内存空间，因此，可以在Cache中缓存
         result->data = Slice(buf, n);
         result->heap_allocated = true;
         result->cachable = true;
@@ -127,6 +136,7 @@ Status ReadBlock(RandomAccessFile* file, const ReadOptions& options,
         delete[] buf;
         return Status::Corruption("corrupted compressed block contents");
       }
+      // 存储解压缩后的内容
       char* ubuf = new char[ulength];
       if (!port::Snappy_Uncompress(data, n, ubuf)) {
         delete[] buf;
@@ -134,6 +144,8 @@ Status ReadBlock(RandomAccessFile* file, const ReadOptions& options,
         return Status::Corruption("corrupted compressed block contents");
       }
       delete[] buf;
+      // 设置为解压缩后的内容，解压缩后的内容，之前在内存中必然没有，所以需要堆中分配
+      // 的内存，并且可以在Cache中缓存
       result->data = Slice(ubuf, ulength);
       result->heap_allocated = true;
       result->cachable = true;

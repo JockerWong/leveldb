@@ -166,7 +166,7 @@ void TableBuilder::Flush() {
   }
 }
 
-// 将data block中的数据，按照指定的压缩类型，写到文件中。之后data block重置。
+// 将block中的数据，按照指定的压缩类型，写到文件中。之后block重置。
 // File格式中包含一系列的block，其中每个block包含：
 //     block_data: uint8[n]   可能压缩了的block数据
 //     type: uint8            数据压缩类型

@@ -182,6 +182,7 @@ class PosixRandomAccessFile final : public RandomAccessFile {
     assert(fd != -1);
 
     Status status;
+    // 从fd中offset指定的偏移位置，读取n个字节到scratch中
     ssize_t read_size = ::pread(fd, scratch, n, static_cast<off_t>(offset));
     *result = Slice(scratch, (read_size < 0) ? 0 : read_size);
     if (read_size < 0) {
@@ -208,6 +209,10 @@ class PosixRandomAccessFile final : public RandomAccessFile {
 // Instances of this class are thread-safe, as required by the RandomAccessFile
 // API. Instances are immutable and Read() only calls thread-safe library
 // functions.
+//
+// 使用mmap()实现在一个文件中随机读访问。
+// 该类的实例是线程安全的，这是RandomAccessFile API要求的。实例不可变，且Read()只调用
+// 线程安全的库函数。
 class PosixMmapReadableFile final : public RandomAccessFile {
  public:
   // mmap_base[0, length-1] points to the memory-mapped contents of the file. It
@@ -217,14 +222,23 @@ class PosixMmapReadableFile final : public RandomAccessFile {
   // |mmap_limiter| must outlive this instance. The caller must have already
   // aquired the right to use one mmap region, which will be released when this
   // instance is destroyed.
+  //
+  // mmap_base[0, length-1] 指向文件内容的内存映射。它必须是一个mmap()的成功调用的结果。
+  // 该实例接管该区域(region)的所有权。
+  // |mmap_limiter| 必须比该实例存活更久。调用者必须已经获取使用一个mmap区域的权限，该
+  // 区域在该实例销毁时被释放。
   PosixMmapReadableFile(std::string filename, char* mmap_base, size_t length,
                         Limiter* mmap_limiter)
       : mmap_base_(mmap_base),
         length_(length),
         mmap_limiter_(mmap_limiter),
+        // filename参数传递时，通过值传递，然后这里通过std::move()强制使用移动语义。
+        // ??? 为什么不直接通过const左值引用传递，然后这里直接调用拷贝构造函数呢 ???
+        //     这样只需一次拷贝，减少了一次移动操作，效率更高（经过测试）
         filename_(std::move(filename)) {}
 
   ~PosixMmapReadableFile() override {
+    // 释放内存空间
     ::munmap(static_cast<void*>(mmap_base_), length_);
     mmap_limiter_->Release();
   }
@@ -236,15 +250,16 @@ class PosixMmapReadableFile final : public RandomAccessFile {
       return PosixError(filename_, EINVAL);
     }
 
+    // 返回的result直接指向内存映射区域mmap_base_中指定位置的“外部存储”
     *result = Slice(mmap_base_ + offset, n);
     return Status::OK();
   }
 
  private:
-  char* const mmap_base_;
-  const size_t length_;
-  Limiter* const mmap_limiter_;
-  const std::string filename_;
+  char* const mmap_base_;         // 指向文件内容的内存映射
+  const size_t length_;           // 内存映射mmap_base_的长度
+  Limiter* const mmap_limiter_;   // ???
+  const std::string filename_;    // 文件名
 };
 
 // POSIX的可写文件
@@ -547,6 +562,7 @@ class PosixEnv : public Env {
     uint64_t file_size;
     Status status = GetFileSize(filename, &file_size);
     if (status.ok()) {
+      // 申请一段fd的内存映射，可读，进程间共享。
       void* mmap_base =
           ::mmap(/*addr=*/nullptr, file_size, PROT_READ, MAP_SHARED, fd, 0);
       if (mmap_base != MAP_FAILED) {
