@@ -170,7 +170,7 @@ struct SkipList<Key, Comparator>::Node {
     assert(n >= 0);
     // Use a 'release store' so that anybody who reads through this
     // pointer observes a fully initialized version of the inserted node.
-    // 使用“release存储”，这样通过该指针读取（aquire读取）的任何地方观察到
+    // 使用“release存储”，这样通过该指针读取（acquire读取）的任何地方观察到
     // 被插入节点x的完整初始化版本
     next_[n].store(x, std::memory_order_release);
   }
