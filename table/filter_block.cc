@@ -119,6 +119,7 @@ FilterBlockReader::FilterBlockReader(const FilterPolicy* policy,
   num_ = (n - 5 - last_word) / 4;
 }
 
+// 判断 block_offset 对应的 filter i 中是否有关键字 key
 bool FilterBlockReader::KeyMayMatch(uint64_t block_offset, const Slice& key) {
   // 计算block_offset（开始位置）对应的filter索引
   uint64_t index = block_offset >> base_lg_;
@@ -134,6 +135,7 @@ bool FilterBlockReader::KeyMayMatch(uint64_t block_offset, const Slice& key) {
     // offset_-data_ 是filter 0 offset的偏移量，即最后一个filter结束的下一个位置。
     if (start <= limit && limit <= static_cast<size_t>(offset_ - data_)) {
       Slice filter = Slice(data_ + start, limit - start);
+      // 用 policy_ 判断 filter i 中是否有key
       return policy_->KeyMayMatch(key, filter);
     } else if (start == limit) {
       // Empty filters do not match any keys

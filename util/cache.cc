@@ -159,6 +159,7 @@ class HandleTable {
   // 返回指向hash对应bucket中与key一致的slot的指针。
   // 如果没有该Cache条目，返回指向hash对应的bucket中末尾slot的指针。
   // 【说明】返回“指针的指针”，就可以通过修改返回值来向bucket末尾追加新元素了。
+  //     或者说，返回“指针的地址”比较好理解，其实还是返回“指针的引用”更容易理解
   LRUHandle** FindPointer(const Slice& key, uint32_t hash) {
     LRUHandle** ptr = &list_[hash & (length_ - 1)];
     // 【说明】先比较hash，因为比较hash比比较Slice要高效的多
@@ -184,12 +185,12 @@ class HandleTable {
     uint32_t count = 0;
     for (uint32_t i = 0; i < length_; i++) {
       LRUHandle* h = list_[i];
-      // 遍历list_中第i个bucket中所有slot对应的元素，逐个将元素分配到扩大后的new_list中
-      // 正确的bucket中。
+      // 遍历list_中第i个bucket中所有slot对应的元素，逐个将元素分配到扩大后的new_list
+      // 中正确的bucket中。
       while (h != nullptr) {
         LRUHandle* next = h->next_hash;
         uint32_t hash = h->hash;
-        // 根据bucket中遍历的当前元素的哈希值重新分配对应的bucket。
+        // 根据bucket中遍历的当前元素的哈希值重新分配到new_list中对应的bucket中。
         LRUHandle** ptr = &new_list[hash & (new_length - 1)];
         // 在new_list中对应的bucket中，采用头插法。
         h->next_hash = *ptr;
